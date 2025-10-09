@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Laser Receiver — Web</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="device">
+    <header class="device-top">
+      <div class="brand">LaserReceiver</div>
+      <div class="leds">
+        <div id="led-green" class="led led-off"></div>
+        <div id="led-red" class="led led-off"></div>
+      </div>
+    </header>
+
+    <main class="device-body">
+      <div class="left-panel">
+        <div class="controls">
+          <label>Камера
+            <select id="cameraSelect"></select>
+          </label>
+
+          <label>Колір лазера
+            <select id="laserColor">
+              <option value="red">Червоний</option>
+              <option value="green">Зелений</option>
+            </select>
+          </label>
+
+          <label>Чутливість
+            <input id="threshold" type="range" min="80" max="255" value="180">
+          </label>
+
+          <div class="buttons">
+            <button id="startBtn" class="btn primary">Старт</button>
+            <button id="soundBtn" class="btn">🔊 Увімкнути звук</button>
+          </div>
+
+          <div class="status-box">
+            <div id="direction" class="status neutral">Очікування...</div>
+            <div id="hint" class="hint">Наведiть лазер на вікно приймача</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="right-panel">
+        <div class="cam-wrap">
+          <video id="video" autoplay playsinline></video>
+          <canvas id="canvas"></canvas>
+
+          <!-- корпусна віконна зона -->
+          <div class="receiver-window">
+            <div class="vertical-slot"></div>
+          </div>
+
+          <!-- center marker -->
+          <div class="center-marker"></div>
+        </div>
+
+        <!-- visual LED strip (when sound off) -->
+        <div class="led-strip" id="ledStrip">
+          <div class="led-seg" id="seg-top"></div>
+          <div class="led-seg" id="seg-center"></div>
+          <div class="led-seg" id="seg-bottom"></div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="device-foot">
+      <div class="footer-left">Версія: Web-Pro</div>
+      <div class="footer-right">djdreamfix / Laser</div>
+    </footer>
+  </div>
+
+<script src="script.js"></script>
+</body>
+</html>
