@@ -1,75 +1,67 @@
 <!doctype html>
 <html lang="uk">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Laser Receiver — Web (v2)</title>
-<link rel="stylesheet" href="style.css">
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Laser Receiver v5 — Web</title>
+<link rel="stylesheet" href="style.css"/>
 </head>
 <body>
-  <div class="device">
-    <header class="device-top">
-      <div class="brand">LaserReceiver</div>
-      <div class="leds">
-        <div id="led-green" class="led led-off" title="Рівень"></div>
-        <div id="led-red" class="led led-off" title="Положення"></div>
-      </div>
-    </header>
+  <div id="app">
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
 
-    <main class="device-body">
-      <div class="left-panel">
-        <div class="controls">
-          <label>Камера
-            <select id="cameraSelect"></select>
-          </label>
-
-          <label>Колір лазера
-            <select id="laserColor">
-              <option value="red">Червоний</option>
-              <option value="green" selected>Зелений</option>
-            </select>
-          </label>
-
-          <label>Чутливість
-            <input id="threshold" type="range" min="80" max="255" value="160">
-          </label>
-
-          <div class="buttons">
-            <button id="startBtn" class="btn primary">Старт</button>
-            <button id="soundBtn" class="btn">🔊 Звук: увімк.</button>
-          </div>
-
-          <div class="status-box">
-            <div id="direction" class="status neutral">Очікування...</div>
-            <div id="hint" class="hint">Наведiть лазер на вікно приймача</div>
-          </div>
-        </div>
+    <!-- Overlays -->
+    <div id="overlay">
+      <div id="icons">
+        <div id="icon-up" class="icon">🔺</div>
+        <div id="icon-center" class="icon">🟢</div>
+        <div id="icon-down" class="icon">🔻</div>
       </div>
 
-      <div class="right-panel">
-        <div class="cam-wrap">
-          <video id="video" autoplay playsinline></video>
-          <canvas id="canvas"></canvas>
+      <div id="levelBubble"><div id="bubble"></div></div>
+      <button id="settingsBtn">⚙️</button>
+      <div id="fps">-- fps</div>
+    </div>
 
-          <div class="receiver-window">
-            <div class="vertical-slot"></div>
-          </div>
+    <!-- Settings modal -->
+    <div id="settingsModal" class="hidden" aria-hidden="true">
+      <div class="modal-content">
+        <h2>Налаштування</h2>
 
-          <div class="center-marker"></div>
-        </div>
+        <label>Чутливість: <strong id="thresholdVal">160</strong></label>
+        <input id="threshold" type="range" min="80" max="255" value="160">
 
-        <div class="led-strip" id="ledStrip">
-          <div class="led-seg" id="seg-top"></div>
-          <div class="led-seg" id="seg-center"></div>
-          <div class="led-seg" id="seg-bottom"></div>
+        <label>Колір лазера</label>
+        <select id="laserColor"><option value="green">Зелений</option><option value="red">Червоний</option></select>
+
+        <label>Режим звуку</label>
+        <select id="soundMode">
+          <option value="real">Реалістичний (змінна частота)</option>
+          <option value="simple">Простий (3 рівня)</option>
+          <option value="off">Вимкнено</option>
+        </select>
+
+        <label>Гучність: <strong id="volumeVal">60</strong>%</label>
+        <input id="volume" type="range" min="0" max="100" value="60">
+
+        <label><input id="autoAdapt" type="checkbox" checked/> Автопідстройка під освітлення</label>
+
+        <label>Камера</label>
+        <select id="cameraSelect"></select>
+
+        <div class="modal-actions">
+          <button id="testSound" class="btn">🔊 Перевірити звук</button>
+          <button id="resetBtn" class="btn">Скинути</button>
+          <button id="closeSettings" class="btn primary">Закрити</button>
         </div>
       </div>
-    </main>
+    </div>
 
-    <footer class="device-foot">
-      <div class="footer-left">Версія: Web-Pro v2</div>
-      <div class="footer-right">djdreamfix / Laser</div>
-    </footer>
+    <div class="controls">
+      <button id="startBtn" class="big">Старт</button>
+      <button id="stopBtn" class="big hidden">Стоп</button>
+    </div>
   </div>
 
 <script src="script.js"></script>
