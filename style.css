@@ -1,6 +1,5 @@
 :root{
   --bg:#0b0b0b; --accent:#00ff66; --accent2:#ff4d4d; --panel:#0f1113; --muted:#9aa0a6;
-  --device:#0c0d0f; --glass:rgba(255,255,255,0.03);
 }
 *{box-sizing:border-box}
 body{background:linear-gradient(180deg,#050506 0%, #0c0c0e 100%);font-family:Inter,Arial,Helvetica,sans-serif;color:var(--accent);display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:20px}
