@@ -1,19 +1,14 @@
-# Laser Receiver Web — Pro
-Web-емулятор лазерного приймача нівеліра.
+# Laser Receiver Web — Pro v2
 
-## Розгортання на GitHub Pages
-1. Клон репозитарію:
-   git clone https://github.com/djdreamfix/laser-detector-web
-   cd laser-detector-web
+Копіюй файли в свій репо і пуш:
 
-2. Скопіюй файли (index.html, style.css, script.js, README.md) у папку репо.
+git clone https://github.com/djdreamfix/laser-detector-web
+cd laser-detector-web
+# кинути сюди файли index.html, style.css, script.js, README.md
+git add .
+git commit -m "Initial Laser Receiver Web Pro v2"
+git push origin main
 
-3. Пуш:
-   git add .
-   git commit -m "Initial Laser Receiver Web Pro"
-   git push origin main
-
-4. У GitHub → Settings → Pages → Source: main branch → root → Save.
-
-Через кілька хвилин сайт буде доступний:
+У GitHub -> Settings -> Pages -> Source: main branch -> root
+Почекай 1-5 хв та відкрий:
 https://djdreamfix.github.io/laser-detector-web/
