@@ -31,7 +31,14 @@
 
         <label>Чутливість: <strong id="thresholdVal">160</strong></label>
         <input id="threshold" type="range" min="80" max="255" value="160">
+<label>Чутливість згладжування (реактивність): <strong id="respVal">60</strong></label>
+<input id="responsiveness" type="range" min="0" max="100" value="60">
 
+<label>Тип звуку центрального сигналу</label>
+<select id="soundType">
+  <option value="thin">Тонкий</option>
+  <option value="dull" selected>Глухий (реалістичний)</option>
+</select>
         <label>Колір лазера</label>
         <select id="laserColor"><option value="green">Зелений</option><option value="red">Червоний</option></select>
 
