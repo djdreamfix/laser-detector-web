@@ -1,64 +1,59 @@
 <!doctype html>
 <html lang="uk">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Laser Receiver v5 — Web</title>
-<link rel="stylesheet" href="style.css"/>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>LaserReceiver Web v5.8 Neon+</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="app">
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas"></canvas>
 
-    <!-- Overlays -->
     <div id="overlay">
-      <div id="icons">
+      <div id="flash" class="flash hidden"></div>
+      <div id="icons" aria-hidden="true">
         <div id="icon-up" class="icon">🔺</div>
         <div id="icon-center" class="icon">🟢</div>
         <div id="icon-down" class="icon">🔻</div>
       </div>
-
-      <div id="levelBubble"><div id="bubble"></div></div>
-      <button id="settingsBtn">⚙️</button>
+      <div id="bubble-wrap"><div id="bubble"></div></div>
+      <button id="settingsBtn" class="settings-btn" aria-label="Налаштування">⚙️</button>
       <div id="fps">-- fps</div>
     </div>
 
-    <!-- Settings modal -->
-    <div id="settingsModal" class="hidden" aria-hidden="true">
+    <div id="settingsModal" class="hidden" role="dialog" aria-modal="true">
       <div class="modal-content">
         <h2>Налаштування</h2>
 
-        <label>Чутливість: <strong id="thresholdVal">160</strong></label>
+        <label>Чутливість (threshold): <strong id="thresholdVal">160</strong></label>
         <input id="threshold" type="range" min="80" max="255" value="160">
-<label>Чутливість згладжування (реактивність): <strong id="respVal">60</strong></label>
-<input id="responsiveness" type="range" min="0" max="100" value="60">
 
-<label>Тип звуку центрального сигналу</label>
-<select id="soundType">
-  <option value="thin">Тонкий</option>
-  <option value="dull" selected>Глухий (реалістичний)</option>
-</select>
         <label>Колір лазера</label>
         <select id="laserColor"><option value="green">Зелений</option><option value="red">Червоний</option></select>
 
         <label>Режим звуку</label>
-        <select id="soundMode">
-          <option value="real">Реалістичний (змінна частота)</option>
-          <option value="simple">Простий (3 рівня)</option>
-          <option value="off">Вимкнено</option>
-        </select>
+        <select id="soundMode"><option value="real">Реалістичний</option><option value="simple">Простий</option><option value="off">Вимкнено</option></select>
+
+        <label>Вибір звуку</label>
+        <select id="soundChoice"><option value="bosch">Bosch</option><option value="leica">Leica</option><option value="short">Short</option></select>
 
         <label>Гучність: <strong id="volumeVal">60</strong>%</label>
         <input id="volume" type="range" min="0" max="100" value="60">
 
-        <label><input id="autoAdapt" type="checkbox" checked/> Автопідстройка під освітлення</label>
+        <label>Точність (responsiveness): <strong id="respVal">60</strong></label>
+        <input id="responsiveness" type="range" min="0" max="100" value="60">
+
+        <label><input id="autoAdapt" type="checkbox" checked> Автопідстройка під освітлення</label>
 
         <label>Камера</label>
         <select id="cameraSelect"></select>
 
+        <label><input id="mute" type="checkbox"> Вимкнути звук</label>
+
         <div class="modal-actions">
-          <button id="testSound" class="btn">🔊 Перевірити звук</button>
+          <button id="testSound" class="btn">🔊 Перевірити</button>
           <button id="resetBtn" class="btn">Скинути</button>
           <button id="closeSettings" class="btn primary">Закрити</button>
         </div>
