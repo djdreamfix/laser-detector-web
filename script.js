@@ -325,8 +325,13 @@ startBtn.onclick = async () => {
   // prepare audio on user gesture
   settings.soundType = soundType.value || settings.soundType;
   prepareAudio();
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
-  detecting = true;
+if (audioCtx) {
+  try {
+    audioCtx.resume().then(() => console.log("Audio resumed"));
+  } catch(e) {
+    console.warn("Resume failed", e);
+  }
+}  detecting = true;
   startBtn.classList.add('hidden');
   stopBtn.classList.remove('hidden');
   mainLoop();
