@@ -35,7 +35,10 @@ canvas{display:none}
   z-index: 9999;              /* <-- головне */
   pointer-events: auto;
 }
-
+/* FIX 2: приховування модального вікна */
+#settingsModal.hidden {
+  display: none !important;
+}
 .modal-content {
   pointer-events: auto;
 }
