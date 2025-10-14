@@ -20,6 +20,11 @@ const KEY = 'laser_receiver_v5_8_settings';
 let settings = { threshold:160, color:'green', soundMode:'real', soundChoice:'bosch', volume:60, responsiveness:60, autoAdapt:true, deviceId:null, mute:false };
 try{ const s = JSON.parse(localStorage.getItem(KEY)); if(s) settings = Object.assign(settings,s); }catch(e){}
 
+let currentBeta = 0;            // вертикальний нахил телефона
+const tiltFactor = 2.0;         // коефіцієнт зміщення центру
+let hasOrientation = false;     // чи доступний сенсор
+
+
 // apply UI
 thresholdInput.value = settings.threshold; thresholdVal.textContent = settings.threshold;
 laserColor.value = settings.color; soundMode.value = settings.soundMode; soundChoice.value = settings.soundChoice;
@@ -107,18 +112,57 @@ async function restartStream(){ await startStream(cameraSelect.value); }
 let smoothY=null; let inCenter=false; let lastState='none';
 function analyzeFrame(){ if(!video||video.readyState<2) return null; ctx.drawImage(video,0,0,canvas.width,canvas.height); const img = ctx.getImageData(0,0,canvas.width,canvas.height); const data = img.data, w=canvas.width, h=canvas.height; const threshold = parseInt(thresholdInput.value); let sumY=0,count=0; for(let y=0;y<h;y+=2){ for(let x=0;x<w;x+=3){ const i=(y*w+x)*4; const r=data[i], g=data[i+1], b=data[i+2]; if(laserColor.value==='green'){ if(g>threshold && g>r*1.8 && g>b*1.8){ sumY+=y; count++; } } else { if(r>threshold && r>g*1.8 && r>b*1.8){ sumY+=y; count++; } } } } if(count<30) return null; return { y: sumY/count, count }; }
 
-function schedulePings(ratio){ clearInterval(window._pingTimer); window._pingTimer=null; stopCenterTone(); if(soundMode.value==='off' || muteCheckbox.checked) return; const style = soundChoice.value || 'bosch'; if(ratio<=0.05){ startCenterTone(style); flashScreen(); return; } const minI=100,maxI=1000; const interval=Math.round(minI + Math.min(1,ratio)*(maxI-minI)); window._pingTimer = setInterval(()=> playBeepOnce(style), interval); }
+function schedulePings(ratio){
+  clearInterval(window._pingTimer);
+  window._pingTimer = null;
+  stopCenterTone();
 
+  if (soundMode.value==='off' || muteCheckbox.checked) return;
+  const style = soundChoice.value || 'bosch';
+
+  if (ratio <= 0.05) {          // у центрі — безперервний звук
+    startCenterTone(style);
+    flashScreen();
+    return;
+  }
+
+  const minI = 100, maxI = 1000;
+  const interval = Math.round(minI + Math.min(1,ratio)*(maxI-minI));
+
+  // якщо лазер є — пікати, якщо пропав — тиша
+  window._pingTimer = setInterval(()=>{
+    if(lastState==='none') { stopAllSounds(); clearInterval(window._pingTimer); return; }
+    playBeepOnce(style);
+  }, interval);
+}
 let flashTimer=null;
 function flashScreen(){ flash.classList.add('show'); flash.classList.remove('hidden'); if(flashTimer) clearTimeout(flashTimer); flashTimer = setTimeout(()=>{ flash.classList.remove('show'); flash.classList.add('hidden'); }, 220); }
 
 function setIcons(state){ iconUp.classList.toggle('active', state==='up'); iconCenter.classList.toggle('active', state==='center'); iconDown.classList.toggle('active', state==='down'); }
 
-function detectLoop(){ if(!streamHandle) return; const s = analyzeFrame(); if(s){ const alpha = 0.2 + (parseInt(respInput.value)/100)*0.75; if(smoothY==null) smoothY = s.y; smoothY = smoothY*alpha + s.y*(1-alpha); const mid = canvas.height/2; const dist = Math.abs(smoothY-mid); const ratio = Math.min(1, dist/(canvas.height/2)); if(inCenter){ if(ratio>0.15) inCenter=false; } else { if(ratio<0.1) inCenter=true; } const state = inCenter ? 'center' : (smoothY<mid ? 'up' : 'down'); if(state!==lastState){ lastState=state; setIcons(state); stopAllSounds(); schedulePings(ratio); } else { schedulePings(ratio); } } else { lastState='none'; inCenter=false; smoothY=null; setIcons('none'); stopAllSounds(); } requestAnimationFrame(detectLoop); }
+function detectLoop(){ if(!streamHandle) return; const s = analyzeFrame(); if(s){ const alpha = 0.2 + (parseInt(respInput.value)/100)*0.75; if(smoothY==null) smoothY = s.y; smoothY = smoothY*alpha + s.y*(1-alpha); const mid = (canvas.height/2) + (currentBeta * tiltFactor); const dist = Math.abs(smoothY-mid); const ratio = Math.min(1, dist/(canvas.height/2)); if(inCenter){ if(ratio>0.15) inCenter=false; } else { if(ratio<0.1) inCenter=true; } const state = inCenter ? 'center' : (smoothY<mid ? 'up' : 'down'); if(state!==lastState){ lastState=state; setIcons(state); stopAllSounds(); schedulePings(ratio); } else { schedulePings(ratio); } } else { lastState='none'; inCenter=false; smoothY=null; setIcons('none'); stopAllSounds(); } requestAnimationFrame(detectLoop); }
 
 // orientation bubble (request permission on iOS)
-async function initOrientation(){ const maxTilt=30; try{ if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){ const perm = await DeviceOrientationEvent.requestPermission(); if(perm!=='granted') return; } }catch(e){} window.addEventListener('deviceorientation', ev=>{ const gx=Math.max(-maxTilt, Math.min(maxTilt, ev.gamma||0)); const gy=Math.max(-maxTilt, Math.min(maxTilt, ev.beta||0)); const px=(gx/maxTilt)*24; const py=(gy/maxTilt)*24; bubble.style.transform = `translate(${px}px, ${py}px)`; }); }
+async function initOrientation(){
+  const maxTilt = 30;
+  try {
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      const perm = await DeviceOrientationEvent.requestPermission();
+      if (perm !== 'granted') return;
+    }
+  } catch(e){}
 
+  window.addEventListener('deviceorientation', ev=>{
+    const gx = Math.max(-maxTilt, Math.min(maxTilt, ev.gamma||0));
+    const gy = Math.max(-maxTilt, Math.min(maxTilt, ev.beta||0));
+    currentBeta = gy;
+    const px = (gx/maxTilt)*24;
+    const py = (gy/maxTilt)*24;
+    bubble.style.transform = `translate(${px}px, ${py}px)`;
+  });
+  hasOrientation = true;
+}
 // UI wiring
 startBtn.onclick = async ()=>{ // save settings
     settings.threshold = parseInt(thresholdInput.value); settings.color = laserColor.value; settings.soundMode = soundMode.value; settings.soundChoice = soundChoice.value;
