@@ -142,7 +142,6 @@ function setIcons(state){ iconUp.classList.toggle('active', state==='up'); iconC
 
 function detectLoop(){ if(!streamHandle) return; const s = analyzeFrame(); if(s){ const alpha = 0.2 + (parseInt(respInput.value)/100)*0.75; if(smoothY==null) smoothY = s.y; smoothY = smoothY*alpha + s.y*(1-alpha); const mid = (canvas.height/2) + (currentBeta * tiltFactor); const dist = Math.abs(smoothY-mid); const ratio = Math.min(1, dist/(canvas.height/2)); if(inCenter){ if(ratio>0.15) inCenter=false; } else { if(ratio<0.1) inCenter=true; } const state = inCenter ? 'center' : (smoothY<mid ? 'up' : 'down'); if(state!==lastState){ lastState=state; setIcons(state); stopAllSounds(); schedulePings(ratio); } else { schedulePings(ratio); } } else { lastState='none'; inCenter=false; smoothY=null; setIcons('none'); stopAllSounds(); } requestAnimationFrame(detectLoop); }
 
-// orientation bubble (request permission on iOS)
 async function initOrientation(){
   const maxTilt = 30;
   try {
@@ -163,6 +162,7 @@ async function initOrientation(){
   });
   hasOrientation = true;
 }
+
 // UI wiring
 startBtn.onclick = async ()=>{ // save settings
     settings.threshold = parseInt(thresholdInput.value); settings.color = laserColor.value; settings.soundMode = soundMode.value; settings.soundChoice = soundChoice.value;
