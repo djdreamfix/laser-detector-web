@@ -241,6 +241,7 @@
             width: 1px;
             height: 100%;
             background-color: rgba(255, 255, 255, 0.5);
+            transform: translateX(-50%);
         }
 
         .flash-overlay {
@@ -362,6 +363,7 @@
                     <div class="bubble" id="bubble"></div>
                 </div>
                 <div class="value-display" id="tilt-value">0°</div>
+                <div class="value-display" id="tilt-status">Рівень</div>
             </div>
         </div>
     </div>
@@ -385,6 +387,7 @@
         let frameCount = 0;
         let lastTime = performance.now();
         let fps = 0;
+        let tiltCalibration = 0;
 
         // Налаштування за замовчуванням
         let settings = {
@@ -392,14 +395,17 @@
             laserColor: 'green',
             soundMode: 'bosch',
             volume: 50,
-            camera: 'user'
+            camera: 'user',
+            tiltCalibration: 0
         };
 
         // Завантаження налаштувань з localStorage
         function loadSettings() {
             const savedSettings = localStorage.getItem('laserReceiverSettings');
             if (savedSettings) {
-                settings = { ...settings, ...JSON.parse(savedSettings) };
+                const parsed = JSON.parse(savedSettings);
+                settings = { ...settings, ...parsed };
+                tiltCalibration = parsed.tiltCalibration || 0;
                 
                 // Оновлення UI відповідно до завантажених налаштувань
                 document.getElementById('sensitivity').value = settings.sensitivity;
@@ -493,11 +499,11 @@
             } else {
                 // Частота пікання зменшується при віддаленні від центру
                 const pulseRate = 10 + (1 - normalizedDistance) * 20;
-                const currentTime = audioContext.currentTime;
-                const pulseTime = 1 / pulseRate;
+                const currentTime = Date.now();
+                const pulseTime = 1000 / pulseRate;
                 
                 // Створення імпульсного звуку
-                if (currentTime % pulseTime < 0.01) {
+                if (currentTime % pulseTime < 50) {
                     const frequency = minFreq + (1 - normalizedDistance) * (maxFreq - minFreq);
                     playSound(frequency);
                     
@@ -653,26 +659,80 @@
         }
 
         // Оновлення рівня нахилу
-        function updateTiltLevel() {
-            if (window.DeviceOrientationEvent) {
-                window.addEventListener('deviceorientation', (event) => {
-                    const tilt = event.beta; // Нахил вперед-назад (-180 до 180)
-                    const bubble = document.getElementById('bubble');
-                    const tiltValue = document.getElementById('tilt-value');
-                    
-                    // Обмеження значень нахилу
-                    const limitedTilt = Math.max(-30, Math.min(30, tilt));
-                    
-                    // Оновлення позиції бульбашки
-                    const bubblePosition = (limitedTilt / 30) * 50; // -50% до 50%
-                    bubble.style.left = `calc(50% + ${bubblePosition}%)`;
-                    
-                    // Оновлення текстового значення
-                    tiltValue.textContent = `${limitedTilt.toFixed(1)}°`;
-                });
-            } else {
-                document.getElementById('tilt-value').textContent = 'Не підтримується';
+        function updateTiltLevel(event) {
+            const bubble = document.getElementById('bubble');
+            const tiltValue = document.getElementById('tilt-value');
+            const tiltStatus = document.getElementById('tilt-status');
+            
+            // Отримання значень нахилу з події
+            let tiltX = 0; // Нахил вліво-вправо (gamma)
+            let tiltY = 0; // Нахил вперед-назад (beta)
+            
+            if (event) {
+                tiltX = event.gamma || 0; // -90 до 90 градусів
+                tiltY = event.beta || 0;  // -180 до 180 градусів
             }
+            
+            // Компенсація калібрування
+            tiltX = tiltX - tiltCalibration;
+            
+            // Обмеження значень нахилу для відображення
+            const limitedTiltX = Math.max(-30, Math.min(30, tiltX));
+            
+            // Оновлення позиції бульбашки
+            const bubblePosition = (limitedTiltX / 30) * 45; // -45% до 45%
+            bubble.style.transform = `translate(calc(-50% + ${bubblePosition}%), -50%)`;
+            
+            // Оновлення текстового значення
+            tiltValue.textContent = `${limitedTiltX.toFixed(1)}°`;
+            
+            // Визначення статусу рівня
+            if (Math.abs(limitedTiltX) < 1) {
+                tiltStatus.textContent = 'Рівень';
+                tiltStatus.style.color = '#04F8D4';
+            } else if (limitedTiltX > 0) {
+                tiltStatus.textContent = 'Нахил вправо';
+                tiltStatus.style.color = '#FF00FF';
+            } else {
+                tiltStatus.textContent = 'Нахил вліво';
+                tiltStatus.style.color = '#FF00FF';
+            }
+        }
+
+        // Калібрування рівня
+        function calibrateTilt() {
+            if (window.DeviceOrientationEvent) {
+                // Запит дозволу на доступ до даних орієнтації (для iOS)
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(permissionState => {
+                            if (permissionState === 'granted') {
+                                startTiltCalibration();
+                            }
+                        })
+                        .catch(console.error);
+                } else {
+                    startTiltCalibration();
+                }
+            } else {
+                alert('Ваш пристрій не підтримує датчики нахилу');
+            }
+        }
+
+        function startTiltCalibration() {
+            // Збереження поточного нахилу як калібрувального значення
+            const handleOrientation = (event) => {
+                tiltCalibration = event.gamma || 0;
+                settings.tiltCalibration = tiltCalibration;
+                saveSettings();
+                
+                // Видаляємо обробник після калібрування
+                window.removeEventListener('deviceorientation', handleOrientation);
+                
+                alert('Калібрування завершено! Поточний нахил встановлений як рівень.');
+            };
+            
+            window.addEventListener('deviceorientation', handleOrientation);
         }
 
         // Автоналаштування
@@ -682,9 +742,11 @@
             settings.sensitivity = 150;
             document.getElementById('sensitivity').value = settings.sensitivity;
             document.getElementById('sensitivity-value').textContent = settings.sensitivity;
-            saveSettings();
             
-            alert('Автоналаштування завершено!');
+            // Калібрування рівня
+            calibrateTilt();
+            
+            saveSettings();
         }
 
         // Ініціалізація додатку
@@ -740,8 +802,25 @@
                 }
             });
             
-            // Оновлення рівня нахилу
-            updateTiltLevel();
+            // Ініціалізація рівня нахилу
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', updateTiltLevel);
+                
+                // Запит дозволу для iOS
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    document.getElementById('auto-calibrate').addEventListener('click', function() {
+                        DeviceOrientationEvent.requestPermission()
+                            .then(permissionState => {
+                                if (permissionState === 'granted') {
+                                    window.addEventListener('deviceorientation', updateTiltLevel);
+                                }
+                            })
+                            .catch(console.error);
+                    });
+                }
+            } else {
+                document.getElementById('tilt-status').textContent = 'Датчик не підтримується';
+            }
             
             updateStatus('Готовий до роботи. Натисніть "Запустити камеру"');
         }
