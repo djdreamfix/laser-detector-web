@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>DreamFix LaserReceiver Web v5.8 Neon+</title>
+    <!-- manifest.json is embedded as a data URI -->
+    <link id="manifest-link" rel="manifest">
+    <style>
+        /* --- General Styles & Neon Theme --- */
+        :root {
+            --neon-green: #04F8D4;
+            --background-color: #0c0c1e;
+            --ui-color: #a3f7ff;
+            --ui-glow: drop-shadow(0 0 5px var(--ui-color)) drop-shadow(0 0 10px var(--ui-color));
+            --modal-bg: rgba(12, 12, 30, 0.9);
+            --font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--background-color);
+            color: var(--ui-color);
+            font-family: var(--font-family);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #app-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* --- Video & Canvas --- */
+        #video, #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #canvas {
+            display: none; /* Hidden canvas for processing */
+        }
+
+        /* --- UI Overlays --- */
+        #ui-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .indicator {
+            font-size: 10vh;
+            filter: var(--ui-glow);
+            text-shadow: 0 0 10px var(--neon-green), 0 0 20px var(--neon-green);
+            opacity: 0;
+            transition: opacity 0.1s ease-in-out;
+        }
+        
+        #indicator-up { color: var(--ui-color); }
+        #indicator-down { color: var(--ui-color); }
+        #indicator-center { color: var(--neon-green); font-size: 15vh; }
+        
+        .indicator.active {
+            opacity: 1;
+        }
+
+        #center-flash {
+            position: absolute;
+            inset: 0;
+            background-color: var(--neon-green);
+            opacity: 0;
+            z-index: 5;
+            pointer-events: none;
+            animation: flash 0.5s infinite alternate;
+        }
+
+        @keyframes flash {
+            from { opacity: 0; }
+            to { opacity: 0.4; }
+        }
+
+        /* --- Bubble Level --- */
+        #level-container {
+            width: 80px;
+            height: 80px;
+            border: 2px solid var(--ui-color);
+            border-radius: 50%;
+            position: absolute;
+            bottom: 80px;
+            filter: var(--ui-glow);
+        }
+
+        #bubble {
+            width: 20px;
+            height: 20px;
+            background-color: var(--ui-color);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s linear;
+        }
+
+        /* --- Buttons --- */
+        .control-button {
+            position: absolute;
+            z-index: 20;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--modal-bg);
+            border: 2px solid var(--ui-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            filter: var(--ui-glow);
+            pointer-events: all;
+            transition: background-color 0.2s;
+        }
+        .control-button:hover {
+            background-color: rgba(163, 247, 255, 0.3);
+        }
+
+        #settings-button { top: 20px; right: 20px; }
+        #mute-button { top: 20px; left: 20px; }
+        #camera-button { bottom: 20px; right: 20px; }
+        #start-button {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: auto;
+            height: auto;
+            padding: 20px 40px;
+            border-radius: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--ui-color);
+            text-transform: uppercase;
+        }
+
+        .icon {
+            width: 24px;
+            height: 24px;
+            stroke: var(--ui-color);
+            stroke-width: 2;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* --- Settings Modal --- */
+        #settings-modal {
+            position: absolute;
+            inset: 0;
+            background: var(--modal-bg);
+            backdrop-filter: blur(10px);
+            z-index: 30;
+            display: none; /* Initially hidden */
+            justify-content: center;
+            align-items: center;
+            pointer-events: all;
+        }
+
+        #settings-modal.visible {
+            display: flex;
+        }
+
+        .settings-content {
+            width: 90%;
+            max-width: 400px;
+            padding: 20px;
+            border: 2px solid var(--ui-color);
+            border-radius: 10px;
+            filter: var(--ui-glow);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .settings-content h2 {
+            text-align: center;
+            font-size: 24px;
+            filter: var(--ui-glow);
+        }
+
+        .setting {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .setting label {
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 4px;
+            background: var(--ui-color);
+            border-radius: 2px;
+            outline: none;
+            filter: var(--ui-glow);
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--background-color);
+            border: 2px solid var(--ui-color);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: var(--background-color);
+            border: 2px solid var(--ui-color);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .select-wrapper {
+            position: relative;
+        }
+        
+        .select-wrapper::after {
+            content: '▼';
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--ui-color);
+            border-radius: 5px;
+            background: transparent;
+            color: var(--ui-color);
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            font-size: 16px;
+        }
+        
+        select option {
+            background: var(--background-color);
+            color: var(--ui-color);
+        }
+
+        #close-settings-button {
+            align-self: center;
+            width: 120px;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 16px;
+            color: var(--ui-color);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <!-- Video and Canvas elements -->
+        <video id="video" playsinline autoplay muted></video>
+        <canvas id="canvas"></canvas>
+
+        <!-- Screen flash effect -->
+        <div id="center-flash" style="display: none;"></div>
+
+        <!-- UI Overlay for indicators -->
+        <div id="ui-overlay">
+            <span id="indicator-up" class="indicator">🔺</span>
+            <span id="indicator-center" class="indicator">🟢</span>
+            <span id="indicator-down" class="indicator">🔻</span>
+            <div id="level-container">
+                <div id="bubble"></div>
+            </div>
+        </div>
+        
+        <!-- Start Button -->
+        <button id="start-button">ПОЧАТИ</button>
+
+        <!-- Control Buttons -->
+        <div id="controls" style="display: none;">
+            <button id="settings-button" class="control-button" aria-label="Налаштування">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.44,0.17-0.48,0.41L9.22,5.25C8.63,5.5,8.1,5.82,7.6,6.2L5.21,5.23C4.99,5.16,4.74,5.22,4.62,5.44L2.7,8.76 C2.59,8.96,2.64,9.23,2.82,9.37l2.03,1.58C4.8,11.36,4.78,11.68,4.78,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94 l0.38,2.44c0.04,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.48-0.41l0.38-2.44c0.59-0.24,1.12-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0.02,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+            </button>
+            <button id="mute-button" class="control-button" aria-label="Вимкнути звук">
+                <svg id="mute-icon" class="icon" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                <svg id="unmute-icon" class="icon" style="display:none;" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zm8.59.59L18 8l-1.59-1.59L15 8l-1.59-1.59L12 8l-1.59-1.59L9 8 7.41 6.41 9 5l1.59 1.59L12 5l1.59 1.59L15 5l1.59 1.59L18 5l1.59 1.59zM16.5 12c0-1.77-1.02-3.29-2.5-4.03v1.78l2.48 2.48c.02-.08.02-.16.02-.23zm-1.02 0c0 .7-.18 1.34-.48 1.9l1.41 1.41c.69-1.12 1.07-2.43 1.07-3.85v-1.28l-2 2v.82zM4.27 3L3 4.27l6.01 6.01V19l5-4-1.73-1.73L4.27 3z"/></svg>
+            </button>
+            <button id="camera-button" class="control-button" aria-label="Змінити камеру">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            </button>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal">
+            <div class="settings-content">
+                <h2>Налаштування</h2>
+                <div class="setting">
+                    <label for="sensitivity-slider">Чутливість: <span id="sensitivity-value">50</span></label>
+                    <input type="range" id="sensitivity-slider" min="10" max="100" value="50">
+                </div>
+                 <div class="setting">
+                    <label for="volume-slider">Гучність: <span id="volume-value">80</span></label>
+                    <input type="range" id="volume-slider" min="0" max="100" value="80">
+                </div>
+                <div class="setting">
+                    <label for="sound-select">Тип звуку</label>
+                    <div class="select-wrapper">
+                        <select id="sound-select">
+                            <option value="bosch">Bosch</option>
+                            <option value="leica">Leica</option>
+                            <option value="short">Short</option>
+                        </select>
+                    </div>
+                </div>
+                 <div class="setting">
+                    <label for="camera-select">Камера</label>
+                    <div class="select-wrapper">
+                        <select id="camera-select">
+                            <!-- Options will be populated by JS -->
+                        </select>
+                    </div>
+                </div>
+                <button id="close-settings-button" class="control-button">Закрити</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    // --- App Entry Point ---
+    window.addEventListener('load', () => {
+        const app = new LaserReceiverApp();
+        app.init();
+    });
+
+    class LaserReceiverApp {
+        constructor() {
+            // DOM Elements
+            this.video = document.getElementById('video');
+            this.canvas = document.getElementById('canvas');
+            this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+            this.indicatorUp = document.getElementById('indicator-up');
+            this.indicatorDown = document.getElementById('indicator-down');
+            this.indicatorCenter = document.getElementById('indicator-center');
+            this.centerFlash = document.getElementById('center-flash');
+            this.bubble = document.getElementById('bubble');
+            this.startButton = document.getElementById('start-button');
+            this.controls = document.getElementById('controls');
+            this.settingsButton = document.getElementById('settings-button');
+            this.muteButton = document.getElementById('mute-button');
+            this.muteIcon = document.getElementById('mute-icon');
+            this.unmuteIcon = document.getElementById('unmute-icon');
+            this.cameraButton = document.getElementById('camera-button');
+            this.settingsModal = document.getElementById('settings-modal');
+            this.closeSettingsButton = document.getElementById('close-settings-button');
+            this.sensitivitySlider = document.getElementById('sensitivity-slider');
+            this.sensitivityValue = document.getElementById('sensitivity-value');
+            this.volumeSlider = document.getElementById('volume-slider');
+            this.volumeValue = document.getElementById('volume-value');
+            this.soundSelect = document.getElementById('sound-select');
+            this.cameraSelect = document.getElementById('camera-select');
+            this.manifestLink = document.getElementById('manifest-link');
+
+            // App State
+            this.stream = null;
+            this.currentCamera = 'environment'; // 'user' for front, 'environment' for back
+            this.animationFrameId = null;
+            this.isProcessing = false;
+            this.isMuted = false;
+            this.cameras = [];
+
+            // Settings
+            this.settings = {
+                sensitivity: 50,
+                volume: 0.8,
+                sound: 'bosch',
+                cameraDeviceId: null
+            };
+
+            // Laser Detection Target Color (#04F8D4)
+            this.targetR = 4;
+            this.targetG = 248;
+            this.targetB = 212;
+
+            // Audio Context
+            this.audioContext = null;
+            this.oscillator = null;
+            this.gainNode = null;
+            this.beepTimeout = null;
+            this.isSoundPlaying = false;
+            
+            // Tilt Compensation
+            this.tilt = { beta: 0, gamma: 0 }; // beta: front-back, gamma: left-right
+        }
+
+        init() {
+            this.loadSettings();
+            this.updateSettingsUI();
+            this.bindEvents();
+            this.setupManifestAndIcon();
+        }
+        
+        setupManifestAndIcon() {
+            // SVG icon can be used for favicon and manifest
+            const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24" fill="none" stroke="${getComputedStyle(document.documentElement).getPropertyValue('--neon-green')}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3L2 12l10 9 10-9-10-9z"></path><path d="M2 12h20"></path></svg>`;
+            const svgBlob = new Blob([svgIcon], { type: 'image/svg+xml' });
+            const svgUrl = URL.createObjectURL(svgBlob);
+            
+            let favicon = document.querySelector("link[rel~='icon']");
+            if (!favicon) {
+                favicon = document.createElement('link');
+                favicon.rel = 'icon';
+                document.head.appendChild(favicon);
+            }
+            favicon.href = svgUrl;
+            
+            const manifest = {
+                "name": "DreamFix LaserReceiver Web",
+                "short_name": "LaserReceiver",
+                "description": "Веб-додаток для виявлення лазерного променя з камери.",
+                "start_url": ".",
+                "display": "fullscreen",
+                "orientation": "portrait",
+                "background_color": "#0c0c1e",
+                "theme_color": "#04F8D4",
+                "icons": [{
+                    "src": svgUrl,
+                    "sizes": "192x192 512x512",
+                    "type": "image/svg+xml"
+                }]
+            };
+            const manifestString = JSON.stringify(manifest);
+            this.manifestLink.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(manifestString);
+        }
+
+        bindEvents() {
+            this.startButton.addEventListener('click', () => this.startApp());
+            this.settingsButton.addEventListener('click', () => this.showSettings(true));
+            this.closeSettingsButton.addEventListener('click', () => this.showSettings(false));
+            this.muteButton.addEventListener('click', () => this.toggleMute());
+            this.cameraButton.addEventListener('click', () => this.switchCamera());
+            
+            // Settings Listeners
+            this.sensitivitySlider.addEventListener('input', (e) => this.handleSettingChange('sensitivity', e.target.value));
+            this.volumeSlider.addEventListener('input', (e) => this.handleSettingChange('volume', e.target.value / 100));
+            this.soundSelect.addEventListener('change', (e) => this.handleSettingChange('sound', e.target.value));
+            this.cameraSelect.addEventListener('change', (e) => this.handleSettingChange('cameraDeviceId', e.target.value));
+            
+            window.addEventListener('deviceorientation', (e) => this.handleOrientation(e));
+        }
+
+        async startApp() {
+            try {
+                this.startButton.style.display = 'none';
+                
+                // Initialize AudioContext on user gesture
+                if (!this.audioContext) {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    this.gainNode = this.audioContext.createGain();
+                    this.gainNode.gain.setValueAtTime(this.settings.volume, this.audioContext.currentTime);
+                    this.gainNode.connect(this.audioContext.destination);
+                }
+                 this.audioContext.resume();
+
+                await this.populateCameraList();
+                await this.startVideoStream();
+
+                this.isProcessing = true;
+                this.controls.style.display = 'block';
+                this.processFrame();
+            } catch (err) {
+                console.error("Помилка запуску програми:", err);
+                this.startButton.textContent = 'ПОМИЛКА ДОСТУПУ';
+                this.startButton.style.display = 'block';
+                console.error("Порада: Ця помилка може виникнути, якщо ви заборонили доступ до камери, або якщо програма запущена з локального файлу (file://). Для коректної роботи потрібен веб-сервер (https:// або localhost).");
+            }
+        }
+        
+        async populateCameraList() {
+            if (!navigator.mediaDevices?.enumerateDevices) {
+                console.warn("enumerateDevices() не підтримується.");
+                return;
+            }
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            this.cameras = devices.filter(device => device.kind === 'videoinput');
+            
+            this.cameraSelect.innerHTML = '';
+            this.cameras.forEach((camera, index) => {
+                const option = document.createElement('option');
+                option.value = camera.deviceId;
+                option.textContent = camera.label || `Камера ${index + 1}`;
+                this.cameraSelect.appendChild(option);
+            });
+            if (this.settings.cameraDeviceId) {
+                this.cameraSelect.value = this.settings.cameraDeviceId;
+            }
+        }
+
+        async startVideoStream(deviceId = null) {
+            if (this.stream) {
+                this.stream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: {
+                    facingMode: this.currentCamera,
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    deviceId: deviceId ? { exact: deviceId } : undefined
+                },
+                audio: false
+            };
+            
+            if (deviceId) {
+                delete constraints.video.facingMode;
+            }
+            
+            this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+            this.video.srcObject = this.stream;
+            await this.video.play();
+
+            // Match canvas size to video stream size
+            this.canvas.width = this.video.videoWidth;
+            this.canvas.height = this.video.videoHeight;
+        }
+
+        async switchCamera() {
+            // Simple front/back switching logic
+            this.currentCamera = this.currentCamera === 'environment' ? 'user' : 'environment';
+            console.log(`Перемикання на камеру: ${this.currentCamera}`);
+            try {
+                await this.startVideoStream();
+            } catch(err) {
+                console.error("Не вдалося перемкнути камеру:", err);
+            }
+        }
+
+        processFrame() {
+            if (!this.isProcessing) return;
+
+            this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+            const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+            const data = imageData.data;
+            
+            const result = this.findLaser(data, this.canvas.width, this.canvas.height);
+            this.updateUI(result);
+
+            this.animationFrameId = requestAnimationFrame(() => this.processFrame());
+        }
+
+        findLaser(data, width, height) {
+            let brightestPixel = { x: -1, y: -1, brightness: 0 };
+            
+            // Sensitivity mapping: 10 -> high tolerance, 100 -> low tolerance
+            const colorTolerance = 255 * (1 - this.settings.sensitivity / 110);
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+
+                const rDiff = Math.abs(r - this.targetR);
+                const gDiff = Math.abs(g - this.targetG);
+                const bDiff = Math.abs(b - this.targetB);
+
+                if (rDiff < colorTolerance && gDiff < colorTolerance && bDiff < colorTolerance) {
+                    // This pixel is within the color range. Check for high brightness.
+                    // A simple brightness check to differentiate from pale colors.
+                    const brightness = (r + g + b) / 3;
+                    
+                    // Filter out glare: Laser should be saturated, glare is not.
+                    // Simple saturation check: dominant color vs others
+                    const max = Math.max(r, g, b);
+                    const min = Math.min(r, g, b);
+                    const saturation = max === 0 ? 0 : (1 - min / max);
+                    
+                    if (brightness > 200 && saturation > 0.8) {
+                        if (brightness > brightestPixel.brightness) {
+                            brightestPixel.brightness = brightness;
+                            brightestPixel.x = (i / 4) % width;
+                            brightestPixel.y = Math.floor((i / 4) / width);
+                        }
+                    }
+                }
+            }
+            return brightestPixel;
+        }
+        
+        handleOrientation(event) {
+            this.tilt = { beta: event.beta, gamma: event.gamma };
+            const clamp = (val, min, max) => Math.max(min, Math.min(val, max));
+            
+            // Max movement of bubble inside the container
+            const maxOffset = this.bubble.parentElement.clientWidth / 2 - this.bubble.clientWidth / 2;
+            
+            let x = clamp(this.tilt.gamma, -90, 90) / 90 * maxOffset;
+            let y = clamp(this.tilt.beta, -90, 90) / 90 * maxOffset;
+            
+            this.bubble.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+        }
+
+        updateUI(laserPos) {
+            this.indicatorUp.classList.remove('active');
+            this.indicatorDown.classList.remove('active');
+            this.indicatorCenter.classList.remove('active');
+            this.centerFlash.style.display = 'none';
+
+            if (laserPos.x === -1) {
+                this.stopSound();
+                return;
+            }
+
+            const h = this.canvas.height;
+            // Angle compensation for vertical center
+            // tan(angle) = opposite / adjacent. We adjust the center point.
+            // A simple linear approximation is often sufficient for small angles.
+            const tiltRads = this.tilt.beta * (Math.PI / 180);
+            const centerOffsetY = (h / 2) * Math.tan(tiltRads);
+            const adjustedCenterY = h / 2 - centerOffsetY;
+            
+            const centerZone = h * 0.05; // 5% of height is the center zone
+            const distance = laserPos.y - adjustedCenterY;
+
+            if (Math.abs(distance) <= centerZone) {
+                // Center
+                this.indicatorCenter.classList.add('active');
+                this.centerFlash.style.display = 'block';
+                this.playSound(0);
+            } else if (distance < 0) {
+                // High
+                this.indicatorUp.classList.add('active');
+                this.playSound(Math.abs(distance));
+            } else {
+                // Low
+                this.indicatorDown.classList.add('active');
+                this.playSound(Math.abs(distance));
+            }
+        }
+        
+        playSound(distance) {
+            if (!this.audioContext || this.isMuted) return;
+
+            const baseFrequency = { bosch: 1000, leica: 1500, short: 2000 }[this.settings.sound];
+            const beepDuration = { bosch: 0.1, leica: 0.08, short: 0.05 }[this.settings.sound];
+            
+            // Distance 0 = continuous tone
+            if (distance === 0) {
+                if (!this.isSoundPlaying || !this.oscillator) {
+                    this.stopSound(true); // Stop any previous beeps
+                    this.oscillator = this.audioContext.createOscillator();
+                    this.oscillator.type = 'sine';
+                    this.oscillator.frequency.setValueAtTime(baseFrequency, this.audioContext.currentTime);
+                    this.oscillator.connect(this.gainNode);
+                    this.oscillator.start();
+                    this.isSoundPlaying = true;
+                }
+                return;
+            }
+
+            // Stop continuous tone if playing
+            if (this.isSoundPlaying && this.oscillator) {
+                this.stopSound(true);
+            }
+
+            // Calculate beep interval based on distance
+            const maxDist = this.canvas.height / 2;
+            const normalizedDist = Math.min(distance / maxDist, 1);
+            let interval = 50 + normalizedDist * 450; // Interval from 50ms to 500ms
+            
+            if (this.isSoundPlaying) return; // Don't start a new beep if one is scheduled
+
+            const playBeep = () => {
+                const osc = this.audioContext.createOscillator();
+                osc.type = { bosch: 'sine', leica: 'square', short: 'triangle' }[this.settings.sound];
+                osc.frequency.setValueAtTime(baseFrequency, this.audioContext.currentTime);
+                osc.connect(this.gainNode);
+                osc.start();
+                osc.stop(this.audioContext.currentTime + beepDuration);
+                
+                if (this.isSoundPlaying) { // Check again in case state changed
+                   this.beepTimeout = setTimeout(playBeep, interval);
+                }
+            };
+            
+            this.isSoundPlaying = true;
+            playBeep();
+        }
+
+        stopSound(force = false) {
+            if (this.beepTimeout) {
+                clearTimeout(this.beepTimeout);
+                this.beepTimeout = null;
+            }
+            if (this.oscillator) {
+                this.oscillator.stop();
+                this.oscillator.disconnect();
+                this.oscillator = null;
+            }
+             if(force) {
+                this.isSoundPlaying = false;
+            }
+            setTimeout(() => { this.isSoundPlaying = false; }, 100);
+        }
+
+        // --- Settings Management ---
+
+        loadSettings() {
+            try {
+                const saved = localStorage.getItem('laserReceiverSettings');
+                if (saved) {
+                    this.settings = { ...this.settings, ...JSON.parse(saved) };
+                }
+            } catch (e) {
+                console.error("Не вдалося завантажити налаштування:", e);
+            }
+        }
+
+        saveSettings() {
+            localStorage.setItem('laserReceiverSettings', JSON.stringify(this.settings));
+        }
+
+        updateSettingsUI() {
+            this.sensitivitySlider.value = this.settings.sensitivity;
+            this.sensitivityValue.textContent = this.settings.sensitivity;
+            this.volumeSlider.value = this.settings.volume * 100;
+            this.volumeValue.textContent = Math.round(this.settings.volume * 100);
+            this.soundSelect.value = this.settings.sound;
+            if(this.gainNode) {
+                 this.gainNode.gain.setValueAtTime(this.settings.volume, this.audioContext.currentTime);
+            }
+            this.updateMuteIcon();
+        }
+
+        async handleSettingChange(key, value) {
+            this.settings[key] = value;
+            if(key === 'cameraDeviceId') {
+                 try {
+                    await this.startVideoStream(value);
+                 } catch(err) {
+                    console.error("Не вдалося змінити камеру:", err);
+                 }
+            }
+            this.updateSettingsUI();
+            this.saveSettings();
+        }
+
+        showSettings(visible) {
+            this.settingsModal.classList.toggle('visible', visible);
+        }
+        
+        toggleMute() {
+            this.isMuted = !this.isMuted;
+            if(this.isMuted) {
+                this.stopSound(true);
+            }
+            this.updateMuteIcon();
+        }
+        
+        updateMuteIcon() {
+            this.muteIcon.style.display = this.isMuted ? 'none' : 'block';
+            this.unmuteIcon.style.display = this.isMuted ? 'block' : 'none';
+        }
+    }
+    </script>
+
+</body>
+</html>
+
