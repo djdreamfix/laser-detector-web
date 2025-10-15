@@ -110,7 +110,7 @@ async function restartStream(){ await startStream(cameraSelect.value); }
 
 // detection logic
 let smoothY=null; let inCenter=false; let lastState='none';
-function analyzeFrame(){ if(!video||video.readyState<2) return null; ctx.drawImage(video,0,0,canvas.width,canvas.height); const img = ctx.getImageData(0,0,canvas.width,canvas.height); const data = img.data, w=canvas.width, h=canvas.height; const threshold = parseInt(thresholdInput.value); let sumY=0,count=0; for(let y=0;y<h;y+=2){ for(let x=0;x<w;x+=3){ const i=(y*w+x)*4; const r=data[i], g=data[i+1], b=data[i+2]; if(laserColor.value==='green'){ if(g>threshold && g>r*1.8 && g>b*1.8){ sumY+=y; count++; } } else { if(r>threshold && r>g*1.8 && r>b*1.8){ sumY+=y; count++; } } } } if(count<30) return null; return { y: sumY/count, count }; }
+function analyzeFrame(){ if(!video||video.readyState<2) return null; ctx.drawImage(video,0,0,canvas.width,canvas.height); const img = ctx.getImageData(0,0,canvas.width,canvas.height); const data = img.data, w=canvas.width, h=canvas.height; const threshold = parseInt(thresholdInput.value); let sumY=0,count=0; for(let y=0;y<h;y+=2){ for(let x=0;x<w;x+=3){ const i=(y*w+x)*4; const r=data[i], g=data[i+1], b=data[i+2]; if(laserColor.value==='green'){ if(g>threshold && g>r*1.2 && b>r*1.1 && g>80 && b>80){ sumY+=y; count++; } } else { if(r>threshold && r>g*1.8 && r>b*1.8){ sumY+=y; count++; } } } } if(count<30) return null; return { y: sumY/count, count }; }
 
 function schedulePings(ratio){
   clearInterval(window._pingTimer);
