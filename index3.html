@@ -350,6 +350,13 @@
             transition: width 0.3s ease;
         }
 
+        .calibration-info {
+            font-size: 14px;
+            color: var(--ios-gray);
+            margin: 10px 0;
+            text-align: center;
+        }
+
         .indicator {
             position: absolute;
             top: 20px;
@@ -484,6 +491,12 @@
 
         .ios-green-button:active {
             background: #2DA44E;
+        }
+
+        .ios-green-button:disabled {
+            background: var(--ios-light-gray);
+            color: var(--ios-gray);
+            cursor: not-allowed;
         }
 
         .button-group {
@@ -734,9 +747,13 @@
                                 <div class="calibration-progress-bar" id="calibration-progress-bar"></div>
                             </div>
                             
+                            <div class="calibration-info" id="calibration-info">
+                                Аналізуються пікселі в центрі екрану...
+                            </div>
+                            
                             <div class="button-group">
                                 <button class="ios-secondary-button" id="cancel-calibration">Скасувати</button>
-                                <button class="ios-green-button" id="capture-laser">Зафіксувати лазер</button>
+                                <button class="ios-green-button" id="capture-laser" disabled>Зафіксувати лазер</button>
                             </div>
                         </div>
                     </div>
@@ -792,7 +809,7 @@
                         </div>
                         <div class="control-group" id="custom-color-group" style="display: none;">
                             <label for="custom-color">Користувацький колір (HEX):</label>
-                            <input type="text" id="custom-color" placeholder="#04F8D4" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--ios-blue); border-radius: 4px;">
+                            <input type="text" id="custom-color" placeholder="#04F8D4" style="width: 100%; padding: 8px; background: var(--ios-background); color: #000000; border: 1px solid var(--ios-blue); border-radius: 4px;">
                         </div>
                         <div class="control-group">
                             <label for="detection-area">Зона виявлення:</label>
@@ -885,7 +902,8 @@
         let isCalibrating = false;
         let calibrationData = {
             samples: [],
-            maxSamples: 30
+            maxSamples: 30,
+            currentSampleCount: 0
         };
 
         // Налаштування за замовчуванням
@@ -1118,11 +1136,12 @@
             // Визначаємо область для калібрування (центр екрану)
             const centerX = Math.floor(canvas.width / 2);
             const centerY = Math.floor(canvas.height / 2);
-            const calibrationSize = 40; // Розмір області калібрування в пікселях
+            const calibrationSize = 20; // Розмір області калібрування в пікселях
             
             let totalR = 0, totalG = 0, totalB = 0;
             let count = 0;
             let maxG = 0;
+            let minG = 255;
             
             // Аналізуємо пікселі в області калібрування
             for (let y = centerY - calibrationSize/2; y < centerY + calibrationSize/2; y++) {
@@ -1134,25 +1153,30 @@
                     
                     // Знаходимо яскраві пікселі (можливий лазер)
                     const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-                    if (brightness > 150) {
+                    if (brightness > 150 && g > r && g > b) {
                         totalR += r;
                         totalG += g;
                         totalB += b;
                         count++;
                         
                         if (g > maxG) maxG = g;
+                        if (g < minG) minG = g;
                     }
                 }
             }
             
             // Зберігаємо зразок, якщо знайшли достатньо яскравих пікселів
-            if (count > 10) {
+            if (count > 5) {
                 calibrationData.samples.push({
                     r: totalR / count,
                     g: totalG / count,
                     b: totalB / count,
-                    maxG: maxG
+                    maxG: maxG,
+                    minG: minG,
+                    count: count
                 });
+                
+                calibrationData.currentSampleCount = calibrationData.samples.length;
                 
                 // Обмежуємо кількість зразків
                 if (calibrationData.samples.length > calibrationData.maxSamples) {
@@ -1160,15 +1184,29 @@
                 }
                 
                 // Оновлюємо прогрес калібрування
-                const progress = Math.min(100, (calibrationData.samples.length / calibrationData.maxSamples) * 100);
+                const progress = Math.min(100, (calibrationData.currentSampleCount / calibrationData.maxSamples) * 100);
                 document.getElementById('calibration-progress-bar').style.width = `${progress}%`;
+                
+                // Оновлюємо інформацію про калібрування
+                const avgG = totalG / count;
+                document.getElementById('calibration-info').textContent = 
+                    `Зібрано зразків: ${calibrationData.currentSampleCount}/${calibrationData.maxSamples}. Середня яскравість: ${Math.round(avgG)}`;
+                
+                // Активуємо кнопку "Зафіксувати лазер", коли зібрано достатньо зразків
+                if (calibrationData.currentSampleCount >= 10) {
+                    document.getElementById('capture-laser').disabled = false;
+                }
+            } else {
+                document.getElementById('calibration-info').textContent = 
+                    `Не виявлено лазера в центрі. Наведіть лазерний промінь точно в приціл.`;
+                document.getElementById('capture-laser').disabled = true;
             }
         }
 
         // Завершення калібрування та налаштування параметрів
         function finishCalibration() {
-            if (calibrationData.samples.length === 0) {
-                alert('Не вдалося отримати дані для калібрування. Спробуйте ще раз.');
+            if (calibrationData.samples.length < 5) {
+                alert('Не вдалося отримати достатньо даних для калібрування. Спробуйте ще раз, направивши лазер в центр прицілу.');
                 return;
             }
             
@@ -1188,7 +1226,8 @@
             avgMaxG /= calibrationData.samples.length;
             
             // Налаштовуємо параметри на основі отриманих даних
-            settings.sensitivity = Math.max(50, Math.min(250, Math.round(avgG * 0.7)));
+            const newSensitivity = Math.max(50, Math.min(250, Math.round(avgG * 0.7)));
+            settings.sensitivity = newSensitivity;
             settings.laserThreshold = Math.round(avgMaxG * 0.8);
             
             // Обчислюємо співвідношення кольорів
@@ -1207,7 +1246,10 @@
             
             saveSettings();
             
-            alert(`Калібрування завершено!\n\nНові параметри:\n- Чутливість: ${settings.sensitivity}\n- Співвідношення G/R: ${settings.redRatio.toFixed(2)}\n- Співвідношення G/B: ${settings.blueRatio.toFixed(2)}`);
+            // Показуємо результати калібрування
+            alert(`Калібрування завершено!\n\nНові параметри:\n- Чутливість: ${settings.sensitivity}\n- Співвідношення G/R: ${settings.redRatio.toFixed(2)}\n- Співвідношення G/B: ${settings.blueRatio.toFixed(2)}\n- Мін. синій: ${settings.minBlue}\n- Мін. яскравість: ${settings.minBrightness}`);
+            
+            return true;
         }
 
         // Обробка відео та аналіз кадрів
@@ -1390,7 +1432,7 @@
                 saveSettings();
                 
                 window.removeEventListener('deviceorientation', handleOrientation);
-                alert('Калібрування завершено!');
+                alert('Калібрування рівня завершено!');
             };
             
             window.addEventListener('deviceorientation', handleOrientation);
@@ -1405,11 +1447,14 @@
             
             isCalibrating = true;
             calibrationData.samples = [];
+            calibrationData.currentSampleCount = 0;
             
             // Показуємо оверлей калібрування
             document.getElementById('calibration-overlay').classList.add('active');
             document.getElementById('crosshair').classList.add('calibrating');
             document.getElementById('calibration-progress-bar').style.width = '0%';
+            document.getElementById('calibration-info').textContent = 'Аналізуються пікселі в центрі екрану...';
+            document.getElementById('capture-laser').disabled = true;
             
             updateStatus('Калібрування... Наведіть лазер у центр');
         }
@@ -1420,6 +1465,13 @@
             document.getElementById('calibration-overlay').classList.remove('active');
             document.getElementById('crosshair').classList.remove('calibrating');
             updateStatus('Калібрування завершено');
+        }
+
+        // Обробка натискання кнопки "Зафіксувати лазер"
+        function captureLaser() {
+            if (finishCalibration()) {
+                stopLaserCalibration();
+            }
         }
 
         // Автоналаштування
@@ -1502,11 +1554,7 @@
             document.getElementById('calibrate-laser').addEventListener('click', startLaserCalibration);
             
             // Кнопки калібрування лазера
-            document.getElementById('capture-laser').addEventListener('click', () => {
-                finishCalibration();
-                stopLaserCalibration();
-            });
-            
+            document.getElementById('capture-laser').addEventListener('click', captureLaser);
             document.getElementById('cancel-calibration').addEventListener('click', stopLaserCalibration);
             
             // Налаштування обробників для повзунків та вибору
