@@ -2,23 +2,31 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>DreamFix LaserReceiver Web v5.8 Neon+</title>
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
     <style>
         :root {
             --neon-green: #04F8D4;
             --neon-pink: #FF00FF;
             --neon-blue: #00FFFF;
             --dark-bg: #0a0a1a;
-            --panel-bg: rgba(10, 20, 40, 0.8);
+            --panel-bg: rgba(10, 20, 40, 0.95);
             --panel-border: rgba(4, 248, 212, 0.5);
+            --safe-area-inset-top: env(safe-area-inset-top);
+            --safe-area-inset-bottom: env(safe-area-inset-bottom);
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         body {
@@ -26,34 +34,42 @@
             color: white;
             overflow: hidden;
             height: 100vh;
+            height: calc(100vh - var(--safe-area-inset-top) - var(--safe-area-inset-bottom));
+            padding-top: var(--safe-area-inset-top);
+            padding-bottom: var(--safe-area-inset-bottom);
             display: flex;
             flex-direction: column;
+            touch-action: manipulation;
         }
 
         .header {
             background: linear-gradient(90deg, rgba(4, 248, 212, 0.2), rgba(255, 0, 255, 0.2));
-            padding: 10px;
+            padding: 12px 15px;
             text-align: center;
             border-bottom: 1px solid var(--neon-green);
             box-shadow: 0 0 10px var(--neon-green);
             z-index: 10;
+            position: relative;
         }
 
         .header h1 {
-            font-size: 1.8rem;
+            font-size: 1.5rem;
             text-shadow: 0 0 10px var(--neon-green), 0 0 20px var(--neon-blue);
-            margin-bottom: 5px;
+            margin-bottom: 4px;
+            font-weight: 700;
         }
 
         .header .version {
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             color: var(--neon-blue);
+            opacity: 0.8;
         }
 
         .main-container {
             display: flex;
             flex: 1;
             position: relative;
+            flex-direction: column;
         }
 
         .video-container {
@@ -63,13 +79,14 @@
             justify-content: center;
             align-items: center;
             overflow: hidden;
+            background-color: #000;
         }
 
         #video {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1); /* Дзеркальне відображення для фронтальної камери */
+            transform: scaleX(-1);
         }
 
         #canvas {
@@ -142,45 +159,68 @@
             opacity: 1;
         }
 
-        .side-panel {
-            width: 300px;
+        .controls-container {
             background-color: var(--panel-bg);
-            border-left: 1px solid var(--panel-border);
+            border-top: 1px solid var(--panel-border);
             padding: 15px;
             display: flex;
             flex-direction: column;
             gap: 15px;
-            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
-            z-index: 5;
+            max-height: 50vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .panel-section {
             background-color: rgba(0, 0, 0, 0.3);
             border: 1px solid var(--panel-border);
-            border-radius: 8px;
-            padding: 10px;
+            border-radius: 12px;
+            padding: 12px;
         }
 
         .panel-title {
             color: var(--neon-green);
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             font-size: 1.1rem;
             text-shadow: 0 0 5px var(--neon-green);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-title .icon {
+            font-size: 1.2rem;
         }
 
         .control-group {
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
 
         label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 6px;
             font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.8);
         }
 
         input[type="range"] {
             width: 100%;
             margin-bottom: 5px;
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--neon-green);
+            cursor: pointer;
+            box-shadow: 0 0 5px var(--neon-green);
         }
 
         .value-display {
@@ -191,23 +231,44 @@
 
         select, button {
             width: 100%;
-            padding: 8px;
+            padding: 12px;
             background-color: rgba(0, 0, 0, 0.5);
             color: white;
             border: 1px solid var(--neon-green);
-            border-radius: 4px;
+            border-radius: 8px;
             margin-bottom: 10px;
+            font-size: 1rem;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2304F8D4' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: calc(100% - 12px) center;
+            padding-right: 40px;
         }
 
         button {
             background: linear-gradient(to bottom, rgba(4, 248, 212, 0.2), rgba(0, 0, 0, 0.5));
             cursor: pointer;
             transition: all 0.3s;
+            font-weight: 600;
         }
 
-        button:hover {
+        button:active {
             background: linear-gradient(to bottom, rgba(4, 248, 212, 0.4), rgba(0, 0, 0, 0.5));
             box-shadow: 0 0 10px var(--neon-green);
+            transform: scale(0.98);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .button-group button {
+            flex: 1;
         }
 
         .bubble-level {
@@ -263,33 +324,86 @@
         .status-bar {
             display: flex;
             justify-content: space-between;
-            padding: 5px 15px;
+            padding: 8px 15px;
             background-color: rgba(0, 0, 0, 0.5);
             border-top: 1px solid var(--neon-green);
             font-size: 0.8rem;
+        }
+
+        .collapsible {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .collapsible.open {
+            max-height: 500px;
+        }
+
+        .toggle-button {
+            background: none;
+            border: none;
+            color: var(--neon-green);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0;
+            width: auto;
         }
 
         .hidden {
             display: none;
         }
 
-        @media (max-width: 768px) {
-            .main-container {
-                flex-direction: column;
+        .ios-notification {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(255, 50, 50, 0.9);
+            color: white;
+            padding: 10px;
+            text-align: center;
+            z-index: 100;
+            font-size: 0.9rem;
+        }
+
+        /* Спеціальні стилі для iOS */
+        @supports (-webkit-touch-callout: none) {
+            body {
+                -webkit-user-drag: none;
             }
             
-            .side-panel {
-                width: 100%;
-                border-left: none;
-                border-top: 1px solid var(--panel-border);
+            select, button {
+                cursor: pointer;
+            }
+            
+            .controls-container {
+                padding-bottom: calc(15px + var(--safe-area-inset-bottom));
+            }
+        }
+
+        @media (min-width: 768px) {
+            .main-container {
+                flex-direction: row;
+            }
+            
+            .controls-container {
+                width: 320px;
+                max-height: none;
+                border-top: none;
+                border-left: 1px solid var(--panel-border);
             }
         }
     </style>
 </head>
 <body>
+    <div class="ios-notification" id="ios-notification">
+        Для найкращої роботи, додайте цю сторінку на домашній екран
+    </div>
+
     <div class="header">
-        <h1>DreamFix LaserReceiver Web v5.8</h1>
-        <div class="version">Neon+ Edition</div>
+        <h1>DreamFix LaserReceiver</h1>
+        <div class="version">v5.8 Neon+ iOS</div>
     </div>
 
     <div class="main-container">
@@ -307,63 +421,152 @@
             </div>
         </div>
 
-        <div class="side-panel">
+        <div class="controls-container">
             <div class="panel-section">
-                <div class="panel-title">Налаштування камери</div>
-                <div class="control-group">
-                    <label for="camera-select">Камера:</label>
-                    <select id="camera-select">
-                        <option value="user">Фронтальна</option>
-                        <option value="environment">Тильна</option>
-                    </select>
+                <div class="panel-title">
+                    <span>📷 Налаштування камери</span>
+                    <button class="toggle-button" data-target="camera-settings">▼</button>
                 </div>
-                <button id="start-camera">Запустити камеру</button>
+                <div class="collapsible" id="camera-settings">
+                    <div class="control-group">
+                        <label for="camera-select">Камера:</label>
+                        <select id="camera-select">
+                            <option value="user">Фронтальна</option>
+                            <option value="environment">Тильна</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="resolution-select">Якість відео:</label>
+                        <select id="resolution-select">
+                            <option value="low">Низька (швидше)</option>
+                            <option value="medium">Середня</option>
+                            <option value="high">Висока (повільніше)</option>
+                        </select>
+                    </div>
+                    <button id="start-camera">Запустити камеру</button>
+                    <button id="stop-camera">Зупинити камеру</button>
+                </div>
             </div>
 
             <div class="panel-section">
-                <div class="panel-title">Налаштування лазера</div>
-                <div class="control-group">
-                    <label for="sensitivity">Чутливість:</label>
-                    <input type="range" id="sensitivity" min="1" max="255" value="200">
-                    <div class="value-display" id="sensitivity-value">200</div>
+                <div class="panel-title">
+                    <span>🎯 Налаштування лазера</span>
+                    <button class="toggle-button" data-target="laser-settings">▼</button>
                 </div>
-                <div class="control-group">
-                    <label for="color-select">Колір лазера:</label>
-                    <select id="color-select">
-                        <option value="green">Зелений (#04F8D4)</option>
-                        <option value="red">Червоний</option>
-                        <option value="blue">Синій</option>
-                    </select>
+                <div class="collapsible open" id="laser-settings">
+                    <div class="control-group">
+                        <label for="sensitivity">Чутливість:</label>
+                        <input type="range" id="sensitivity" min="1" max="255" value="200">
+                        <div class="value-display" id="sensitivity-value">200</div>
+                    </div>
+                    <div class="control-group">
+                        <label for="color-select">Колір лазера:</label>
+                        <select id="color-select">
+                            <option value="green">Зелений (#04F8D4)</option>
+                            <option value="red">Червоний</option>
+                            <option value="blue">Синій</option>
+                            <option value="custom">Користувацький</option>
+                        </select>
+                    </div>
+                    <div class="control-group" id="custom-color-group" style="display: none;">
+                        <label for="custom-color">Користувацький колір (HEX):</label>
+                        <input type="text" id="custom-color" placeholder="#04F8D4" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--neon-green); border-radius: 4px;">
+                    </div>
+                    <div class="control-group">
+                        <label for="detection-area">Зона виявлення (%):</label>
+                        <input type="range" id="detection-area" min="1" max="100" value="100">
+                        <div class="value-display" id="detection-area-value">100%</div>
+                    </div>
+                    <button id="auto-calibrate">Автоналаштування</button>
+                    <button id="reset-settings">Скинути налаштування</button>
                 </div>
-                <button id="auto-calibrate">Автоналаштування</button>
             </div>
 
             <div class="panel-section">
-                <div class="panel-title">Звук</div>
-                <div class="control-group">
-                    <label for="sound-mode">Режим звуку:</label>
-                    <select id="sound-mode">
-                        <option value="bosch">Bosch</option>
-                        <option value="leica">Leica</option>
-                        <option value="short">Short</option>
-                    </select>
+                <div class="panel-title">
+                    <span>🔊 Звук</span>
+                    <button class="toggle-button" data-target="sound-settings">▼</button>
                 </div>
-                <div class="control-group">
-                    <label for="volume">Гучність:</label>
-                    <input type="range" id="volume" min="0" max="100" value="50">
-                    <div class="value-display" id="volume-value">50%</div>
+                <div class="collapsible" id="sound-settings">
+                    <div class="control-group">
+                        <label for="sound-mode">Режим звуку:</label>
+                        <select id="sound-mode">
+                            <option value="bosch">Bosch</option>
+                            <option value="leica">Leica</option>
+                            <option value="short">Short</option>
+                            <option value="custom">Користувацький</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="volume">Гучність:</label>
+                        <input type="range" id="volume" min="0" max="100" value="50">
+                        <div class="value-display" id="volume-value">50%</div>
+                    </div>
+                    <div class="control-group">
+                        <label for="pitch-range">Діапазон тону:</label>
+                        <input type="range" id="pitch-range" min="200" max="2000" value="800">
+                        <div class="value-display" id="pitch-range-value">800 Гц</div>
+                    </div>
+                    <div class="button-group">
+                        <button id="mute-toggle">Вимкнути звук</button>
+                        <button id="test-sound">Тест звуку</button>
+                    </div>
                 </div>
-                <button id="mute-toggle">Вимкнути звук</button>
             </div>
 
             <div class="panel-section">
-                <div class="panel-title">Рівень нахилу</div>
-                <div class="bubble-level">
-                    <div class="center-line"></div>
-                    <div class="bubble" id="bubble"></div>
+                <div class="panel-title">
+                    <span>📐 Рівень нахилу</span>
+                    <button class="toggle-button" data-target="tilt-settings">▼</button>
                 </div>
-                <div class="value-display" id="tilt-value">0°</div>
-                <div class="value-display" id="tilt-status">Рівень</div>
+                <div class="collapsible" id="tilt-settings">
+                    <div class="bubble-level">
+                        <div class="center-line"></div>
+                        <div class="bubble" id="bubble"></div>
+                    </div>
+                    <div class="value-display" id="tilt-value">0°</div>
+                    <div class="value-display" id="tilt-status">Рівень</div>
+                    <div class="control-group">
+                        <label for="tilt-sensitivity">Чутливість рівня:</label>
+                        <input type="range" id="tilt-sensitivity" min="1" max="10" value="5">
+                        <div class="value-display" id="tilt-sensitivity-value">5</div>
+                    </div>
+                    <button id="calibrate-tilt">Калібрувати рівень</button>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">
+                    <span>⚙️ Інші налаштування</span>
+                    <button class="toggle-button" data-target="other-settings">▼</button>
+                </div>
+                <div class="collapsible" id="other-settings">
+                    <div class="control-group">
+                        <label for="interface-theme">Тема інтерфейсу:</label>
+                        <select id="interface-theme">
+                            <option value="neon">Неонова</option>
+                            <option value="dark">Темна</option>
+                            <option value="light">Світла</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="crosshair-style">Стиль прицілу:</label>
+                        <select id="crosshair-style">
+                            <option value="circle">Коло</option>
+                            <option value="cross">Хрест</option>
+                            <option value="square">Квадрат</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="vibration-feedback">Вібрація:</label>
+                        <select id="vibration-feedback">
+                            <option value="on">Увімкнено</option>
+                            <option value="off">Вимкнено</option>
+                        </select>
+                    </div>
+                    <button id="export-settings">Експорт налаштувань</button>
+                    <button id="import-settings">Імпорт налаштувань</button>
+                </div>
             </div>
         </div>
     </div>
@@ -388,15 +591,24 @@
         let lastTime = performance.now();
         let fps = 0;
         let tiltCalibration = 0;
+        let mediaStream = null;
 
         // Налаштування за замовчуванням
         let settings = {
             sensitivity: 200,
             laserColor: 'green',
+            customLaserColor: '#04F8D4',
             soundMode: 'bosch',
             volume: 50,
             camera: 'user',
-            tiltCalibration: 0
+            tiltCalibration: 0,
+            tiltSensitivity: 5,
+            detectionArea: 100,
+            resolution: 'medium',
+            pitchRange: 800,
+            interfaceTheme: 'neon',
+            crosshairStyle: 'circle',
+            vibrationFeedback: 'on'
         };
 
         // Завантаження налаштувань з localStorage
@@ -411,16 +623,44 @@
                 document.getElementById('sensitivity').value = settings.sensitivity;
                 document.getElementById('sensitivity-value').textContent = settings.sensitivity;
                 document.getElementById('color-select').value = settings.laserColor;
+                document.getElementById('custom-color').value = settings.customLaserColor;
                 document.getElementById('sound-mode').value = settings.soundMode;
                 document.getElementById('volume').value = settings.volume;
                 document.getElementById('volume-value').textContent = settings.volume + '%';
                 document.getElementById('camera-select').value = settings.camera;
+                document.getElementById('resolution-select').value = settings.resolution;
+                document.getElementById('tilt-sensitivity').value = settings.tiltSensitivity;
+                document.getElementById('tilt-sensitivity-value').textContent = settings.tiltSensitivity;
+                document.getElementById('detection-area').value = settings.detectionArea;
+                document.getElementById('detection-area-value').textContent = settings.detectionArea + '%';
+                document.getElementById('pitch-range').value = settings.pitchRange;
+                document.getElementById('pitch-range-value').textContent = settings.pitchRange + ' Гц';
+                document.getElementById('interface-theme').value = settings.interfaceTheme;
+                document.getElementById('crosshair-style').value = settings.crosshairStyle;
+                document.getElementById('vibration-feedback').value = settings.vibrationFeedback;
+                
+                // Показати/приховати користувацький колір
+                toggleCustomColor(settings.laserColor === 'custom');
+                
+                // Застосувати тему
+                applyTheme(settings.interfaceTheme);
             }
         }
 
         // Збереження налаштувань до localStorage
         function saveSettings() {
             localStorage.setItem('laserReceiverSettings', JSON.stringify(settings));
+        }
+
+        // Застосування теми інтерфейсу
+        function applyTheme(theme) {
+            document.body.setAttribute('data-theme', theme);
+        }
+
+        // Перемикання видимості поля користувацького кольору
+        function toggleCustomColor(show) {
+            const customColorGroup = document.getElementById('custom-color-group');
+            customColorGroup.style.display = show ? 'block' : 'none';
         }
 
         // Ініціалізація аудіо
@@ -434,7 +674,7 @@
         }
 
         // Відтворення звуку
-        function playSound(frequency) {
+        function playSound(frequency, duration) {
             if (isMuted || !audioContext) return;
             
             if (oscillator) {
@@ -449,6 +689,13 @@
             
             // Встановлення гучності
             gainNode.gain.value = settings.volume / 100;
+            
+            // Зупинка звуку після вказаної тривалості
+            if (duration) {
+                setTimeout(() => {
+                    stopSound();
+                }, duration);
+            }
         }
 
         // Зупинка звуку
@@ -457,6 +704,11 @@
                 oscillator.stop();
                 oscillator = null;
             }
+        }
+
+        // Тест звуку
+        function testSound() {
+            playSound(800, 500);
         }
 
         // Оновлення частоти звуку на основі позиції лазера
@@ -487,6 +739,11 @@
                     minFreq = 800;
                     maxFreq = 1600;
                     break;
+                case 'custom':
+                    baseFreq = settings.pitchRange;
+                    minFreq = Math.max(200, baseFreq - 400);
+                    maxFreq = Math.min(2000, baseFreq + 400);
+                    break;
                 default:
                     baseFreq = 800;
                     minFreq = 400;
@@ -496,6 +753,11 @@
             // Якщо лазер у центрі - безперервний тон
             if (normalizedDistance < 0.05) {
                 playSound(baseFreq);
+                
+                // Вібрація при потраплянні в центр
+                if (settings.vibrationFeedback === 'on' && 'vibrate' in navigator) {
+                    navigator.vibrate(100);
+                }
             } else {
                 // Частота пікання зменшується при віддаленні від центру
                 const pulseRate = 10 + (1 - normalizedDistance) * 20;
@@ -505,12 +767,7 @@
                 // Створення імпульсного звуку
                 if (currentTime % pulseTime < 50) {
                     const frequency = minFreq + (1 - normalizedDistance) * (maxFreq - minFreq);
-                    playSound(frequency);
-                    
-                    // Зупинка звуку після короткого імпульсу
-                    setTimeout(() => {
-                        stopSound();
-                    }, 50);
+                    playSound(frequency, 50);
                 }
             }
         }
@@ -518,16 +775,21 @@
         // Запуск камери
         async function startCamera() {
             try {
+                // Зупинити попередній потік, якщо він існує
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                }
+                
                 const constraints = {
                     video: {
                         facingMode: settings.camera,
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
+                        width: { ideal: getResolutionWidth() },
+                        height: { ideal: getResolutionHeight() }
                     }
                 };
                 
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                video.srcObject = stream;
+                mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = mediaStream;
                 isCameraActive = true;
                 
                 // Очікування завантаження відео
@@ -540,6 +802,41 @@
             } catch (err) {
                 console.error('Помилка доступу до камери:', err);
                 updateStatus('Помилка доступу до камери');
+                
+                // Сповіщення для iOS
+                if (err.name === 'NotAllowedError') {
+                    alert('Будь ласка, дозвольте доступ до камери в налаштуваннях вашого браузера');
+                }
+            }
+        }
+
+        // Зупинка камери
+        function stopCamera() {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            isCameraActive = false;
+            video.srcObject = null;
+            updateStatus('Камера зупинена');
+        }
+
+        // Отримання розмірів роздільної здатності
+        function getResolutionWidth() {
+            switch(settings.resolution) {
+                case 'low': return 640;
+                case 'medium': return 1280;
+                case 'high': return 1920;
+                default: return 1280;
+            }
+        }
+
+        function getResolutionHeight() {
+            switch(settings.resolution) {
+                case 'low': return 480;
+                case 'medium': return 720;
+                case 'high': return 1080;
+                default: return 720;
             }
         }
 
@@ -559,18 +856,31 @@
             let count = 0;
             const threshold = settings.sensitivity;
             
-            for (let i = 0; i < data.length; i += 4) {
-                const r = data[i];
-                const g = data[i + 1];
-                const b = data[i + 2];
-                
-                // Умова виявлення лазера (одна стрічка)
-                if (settings.laserColor === 'green') {
-                    const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-                    if (g > threshold && g > r * 1.8 && g > b * 1.5 && b > 100 && brightness > 160 && Math.abs(g - b) < 90 && !(r > 120 && g > 120 && b > 120)) {
-                        const y = Math.floor((i / 4) / canvas.width);
-                        sumY += y;
-                        count++;
+            // Визначення зони виявлення
+            const detectionArea = settings.detectionArea / 100;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const detectionWidth = canvas.width * detectionArea;
+            const detectionHeight = canvas.height * detectionArea;
+            const startX = centerX - detectionWidth / 2;
+            const startY = centerY - detectionHeight / 2;
+            const endX = centerX + detectionWidth / 2;
+            const endY = centerY + detectionHeight / 2;
+            
+            for (let y = startY; y < endY; y++) {
+                for (let x = startX; x < endX; x++) {
+                    const i = (y * canvas.width + x) * 4;
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    
+                    // Умова виявлення лазера (одна стрічка)
+                    if (settings.laserColor === 'green' || settings.laserColor === 'custom') {
+                        const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+                        if (g > threshold && g > r * 1.8 && g > b * 1.5 && b > 100 && brightness > 160 && Math.abs(g - b) < 90 && !(r > 120 && g > 120 && b > 120)) {
+                            sumY += y;
+                            count++;
+                        }
                     }
                 }
             }
@@ -676,8 +986,12 @@
             // Компенсація калібрування
             tiltX = tiltX - tiltCalibration;
             
+            // Застосування чутливості
+            const sensitivityFactor = settings.tiltSensitivity / 5;
+            const adjustedTiltX = tiltX * sensitivityFactor;
+            
             // Обмеження значень нахилу для відображення
-            const limitedTiltX = Math.max(-30, Math.min(30, tiltX));
+            const limitedTiltX = Math.max(-30, Math.min(30, adjustedTiltX));
             
             // Оновлення позиції бульбашки
             const bubblePosition = (limitedTiltX / 30) * 45; // -45% до 45%
@@ -708,6 +1022,8 @@
                         .then(permissionState => {
                             if (permissionState === 'granted') {
                                 startTiltCalibration();
+                            } else {
+                                alert('Дозвіл на доступ до даних орієнтації не надано');
                             }
                         })
                         .catch(console.error);
@@ -737,8 +1053,7 @@
 
         // Автоналаштування
         function autoCalibrate() {
-            // Тут можна додати логіку автоматичного налаштування чутливості
-            // Наразі просто встановлюємо середнє значення
+            // Автоматичне налаштування чутливості
             settings.sensitivity = 150;
             document.getElementById('sensitivity').value = settings.sensitivity;
             document.getElementById('sensitivity-value').textContent = settings.sensitivity;
@@ -747,12 +1062,61 @@
             calibrateTilt();
             
             saveSettings();
+            alert('Автоналаштування завершено!');
+        }
+
+        // Скидання налаштувань
+        function resetSettings() {
+            if (confirm('Ви впевнені, що хочете скинути всі налаштування до значень за замовчуванням?')) {
+                localStorage.removeItem('laserReceiverSettings');
+                location.reload();
+            }
+        }
+
+        // Експорт налаштувань
+        function exportSettings() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(settings, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "laser_receiver_settings.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        // Імпорт налаштувань
+        function importSettings() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        const importedSettings = JSON.parse(event.target.result);
+                        settings = { ...settings, ...importedSettings };
+                        saveSettings();
+                        loadSettings();
+                        alert('Налаштування успішно імпортовані!');
+                    } catch (err) {
+                        alert('Помилка при імпорті налаштувань: некоректний файл');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
         }
 
         // Ініціалізація додатку
         function initApp() {
             // Завантаження налаштувань
             loadSettings();
+            
+            // Приховування iOS сповіщення через кілька секунд
+            setTimeout(() => {
+                document.getElementById('ios-notification').style.display = 'none';
+            }, 5000);
             
             // Ініціалізація аудіо після кліку (для розблокування в браузерах)
             document.body.addEventListener('click', () => {
@@ -762,10 +1126,17 @@
                 }
             });
             
-            // Налаштування обробників подій
+            // Налаштування обробників подій для кнопок
             document.getElementById('start-camera').addEventListener('click', startCamera);
+            document.getElementById('stop-camera').addEventListener('click', stopCamera);
             document.getElementById('auto-calibrate').addEventListener('click', autoCalibrate);
+            document.getElementById('reset-settings').addEventListener('click', resetSettings);
+            document.getElementById('test-sound').addEventListener('click', testSound);
+            document.getElementById('calibrate-tilt').addEventListener('click', calibrateTilt);
+            document.getElementById('export-settings').addEventListener('click', exportSettings);
+            document.getElementById('import-settings').addEventListener('click', importSettings);
             
+            // Налаштування обробників для повзунків та вибору
             document.getElementById('sensitivity').addEventListener('input', (e) => {
                 settings.sensitivity = parseInt(e.target.value);
                 document.getElementById('sensitivity-value').textContent = settings.sensitivity;
@@ -774,6 +1145,12 @@
             
             document.getElementById('color-select').addEventListener('change', (e) => {
                 settings.laserColor = e.target.value;
+                toggleCustomColor(settings.laserColor === 'custom');
+                saveSettings();
+            });
+            
+            document.getElementById('custom-color').addEventListener('change', (e) => {
+                settings.customLaserColor = e.target.value;
                 saveSettings();
             });
             
@@ -793,6 +1170,45 @@
                 saveSettings();
             });
             
+            document.getElementById('resolution-select').addEventListener('change', (e) => {
+                settings.resolution = e.target.value;
+                saveSettings();
+            });
+            
+            document.getElementById('tilt-sensitivity').addEventListener('input', (e) => {
+                settings.tiltSensitivity = parseInt(e.target.value);
+                document.getElementById('tilt-sensitivity-value').textContent = settings.tiltSensitivity;
+                saveSettings();
+            });
+            
+            document.getElementById('detection-area').addEventListener('input', (e) => {
+                settings.detectionArea = parseInt(e.target.value);
+                document.getElementById('detection-area-value').textContent = settings.detectionArea + '%';
+                saveSettings();
+            });
+            
+            document.getElementById('pitch-range').addEventListener('input', (e) => {
+                settings.pitchRange = parseInt(e.target.value);
+                document.getElementById('pitch-range-value').textContent = settings.pitchRange + ' Гц';
+                saveSettings();
+            });
+            
+            document.getElementById('interface-theme').addEventListener('change', (e) => {
+                settings.interfaceTheme = e.target.value;
+                applyTheme(settings.interfaceTheme);
+                saveSettings();
+            });
+            
+            document.getElementById('crosshair-style').addEventListener('change', (e) => {
+                settings.crosshairStyle = e.target.value;
+                saveSettings();
+            });
+            
+            document.getElementById('vibration-feedback').addEventListener('change', (e) => {
+                settings.vibrationFeedback = e.target.value;
+                saveSettings();
+            });
+            
             document.getElementById('mute-toggle').addEventListener('click', () => {
                 isMuted = !isMuted;
                 document.getElementById('mute-toggle').textContent = isMuted ? 'Увімкнути звук' : 'Вимкнути звук';
@@ -802,13 +1218,23 @@
                 }
             });
             
+            // Обробники для кнопок розгортання/згортання
+            document.querySelectorAll('.toggle-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetId = button.getAttribute('data-target');
+                    const target = document.getElementById(targetId);
+                    target.classList.toggle('open');
+                    button.textContent = target.classList.contains('open') ? '▲' : '▼';
+                });
+            });
+            
             // Ініціалізація рівня нахилу
             if (window.DeviceOrientationEvent) {
                 window.addEventListener('deviceorientation', updateTiltLevel);
                 
                 // Запит дозволу для iOS
                 if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                    document.getElementById('auto-calibrate').addEventListener('click', function() {
+                    document.getElementById('calibrate-tilt').addEventListener('click', function() {
                         DeviceOrientationEvent.requestPermission()
                             .then(permissionState => {
                                 if (permissionState === 'granted') {
