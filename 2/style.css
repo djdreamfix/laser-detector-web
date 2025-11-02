@@ -1,0 +1,47 @@
+:root{
+  --primary:#007AFF;
+  --muted:#8E8E93;
+  --bg:#F2F2F7;
+  --neon1:#04F8D4;
+  --neon2:#FF00FF;
+  --neon3:#00FFFF;
+  --success:#34C759;
+  --warn:#FF9500;
+  --danger:#FF3B30;
+  --glass: rgba(255,255,255,0.06);
+  --blur: 10px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:-apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", Arial;background:linear-gradient(135deg,#05061a 0%, #081027 60%);color:#fff}
+.screen{height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px}
+.hidden{display:none}
+
+.brand h1{font-size:36px;margin:0;color:var(--neon1);text-shadow:0 0 10px rgba(4,248,212,0.35)}
+.brand p{margin:6px 0 24px;color:var(--muted)}
+
+button.primary{background:linear-gradient(90deg,var(--neon1),var(--neon3));border:none;padding:14px 28px;border-radius:14px;font-size:18px;color:#021;box-shadow:0 8px 30px rgba(4,248,212,0.12);}
+
+main{display:flex;height:100vh;width:100vw;gap:12px;padding:env(safe-area-inset-top) 12px 12px env(safe-area-inset-left)}
+#videoWrap{position:relative;flex:1;border-radius:18px;overflow:hidden;background:#000;box-shadow:0 10px 40px rgba(0,0,0,0.6)}
+video{width:100%;height:100%;object-fit:cover;display:block}
+canvas{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
+
+#reticle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.indicator{font-size:28px;backdrop-filter:blur(4px);padding:6px 10px;border-radius:12px;opacity:0.9}
+.centerDot{font-size:30px;transform:scale(0.55);transition:transform .08s linear}
+
+#sidebar{width:320px;max-width:40%;background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.12));border-radius:16px;padding:16px;backdrop-filter: blur(8px)}
+#sidebar h2{margin-top:0;color:var(--neon2)}
+#sidebar label{display:block;margin:12px 0;font-size:14px;color:#fff}
+#sidebar input[type=range]{width:100%}
+#sidebar select,input[type=color]{width:100%;padding:8px;border-radius:8px;border:none}
+
+.status{margin-top:12px;padding:8px;border-radius:8px;background:rgba(0,0,0,0.25);font-size:13px}
+
+#level3d{position:absolute;right:12px;top:12px;width:84px;height:84px;border-radius:12px;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center}
+#bubble{width:18px;height:18px;border-radius:50%;background:var(--neon1);box-shadow:0 0 10px rgba(4,248,212,0.6);transform:translate(0,0)}
+
+@media (prefers-reduced-motion: reduce){
+  *{transition:none!important}
+}

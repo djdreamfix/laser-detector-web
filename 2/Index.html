@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>DreamFix LaserReceiver v5.8 Neon+</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="launchScreen" class="screen">
+    <div class="brand">
+      <h1>DreamFix</h1>
+      <p>LaserReceiver Web v5.8 Neon+</p>
+    </div>
+    <button id="startBtn" class="primary">Start</button>
+  </div>
+
+  <main id="app" class="hidden">
+    <div id="videoWrap">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="overlay"></canvas>
+
+      <div id="reticle">
+        <div id="indicatorTop" class="indicator">🔺</div>
+        <div id="indicatorCenter" class="indicator centerDot">🟢</div>
+        <div id="indicatorBottom" class="indicator">🔻</div>
+      </div>
+
+      <div id="level3d">
+        <div id="bubble"></div>
+      </div>
+    </div>
+
+    <aside id="sidebar">
+      <h2>Settings</h2>
+
+      <label>Laser Color
+        <select id="laserColor">
+          <option value="green">Green</option>
+          <option value="red">Red</option>
+          <option value="blue">Blue</option>
+          <option value="custom">Custom</option>
+        </select>
+      </label>
+
+      <label>Custom Color <input id="customColor" type="color" value="#04F8D4" /></label>
+
+      <label>Sensitivity <input id="sensitivity" type="range" min="50" max="400" /></label>
+
+      <label>Detection Area (%) <input id="detectionArea" type="range" min="20" max="100" /></label>
+
+      <label>Sound Mode
+        <select id="soundMode">
+          <option value="bosch">Bosch</option>
+          <option value="leica">Leica</option>
+          <option value="short">Short</option>
+        </select>
+      </label>
+
+      <label>Volume <input id="volume" type="range" min="0" max="100" /></label>
+
+      <button id="calibrateBtn">Calibrate</button>
+      <button id="toggleCamBtn">Switch Camera</button>
+      <button id="resetBtn">Reset Settings</button>
+
+      <div id="status" class="status">Status: idle</div>
+    </aside>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
