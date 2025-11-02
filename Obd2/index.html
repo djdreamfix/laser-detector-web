@@ -699,6 +699,84 @@ importFile.addEventListener('change', async (e)=>{
 
 /* ========= Utils ========= */
 function escapeHtml(s){ return s.replace(/[&<>"]/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+function renderResult(parsed, tips){
+  // показати усі розпізнані ключ-значення
+  renderKV(parsed);
+  // показати поради
+  renderAdvice(tips);
+  // оновити статус
+  statusText.textContent = 'Готово';
+  // швидкі підсумки у вигляді «піллів»
+  quickSummary.innerHTML = '';
+
+  if (Array.isArray(parsed.КодиПомилок) && parsed.КодиПомилок.length) {
+    const pill = document.createElement('div');
+    pill.className='pill';
+    pill.textContent = `DTC: ${parsed.КодиПомилок.join(', ')}`;
+    quickSummary.appendChild(pill);
+  }
+  if (typeof parsed.Обороти === 'number') {
+    const pill = document.createElement('div');
+    pill.className='pill';
+    pill.textContent = `RPM: ${parsed.Обороти}`;
+    quickSummary.appendChild(pill);
+  }
+  if (typeof parsed.ТемператураОЖ === 'number') {
+    const pill = document.createElement('div');
+    pill.className='pill';
+    pill.textContent = `ECT: ${parsed.ТемператураОЖ}°C`;
+    quickSummary.appendChild(pill);
+  }
+  if (typeof parsed.ТискMAP_kPa === 'number') {
+    const pill = document.createElement('div');
+    pill.className='pill';
+    pill.textContent = `MAP: ${parsed.ТискMAP_kPa} kPa`;
+    quickSummary.appendChild(pill);
+  }
+  if (typeof parsed.МасоваВитратаПовітря_gs === 'number') {
+    const pill = document.createElement('div');
+    pill.className='pill';
+    pill.textContent = `MAF: ${parsed.МасоваВитратаПовітря_gs} g/s`;
+    quickSummary.appendChild(pill);
+  }
+  if (typeof parsed.ПоложенняДроселяВідсоток === 'number') {
+    const pill = document.createElement('div');
+    pill.className='pill';
+    pill.textContent = `TPS: ${parsed.ПоложенняДроселяВідсоток}%`;
+    quickSummary.appendChild(pill);
+  }
+}
+
+function renderKV(obj){
+  kvEl.innerHTML = '';
+  const add = (k,v) => {
+    const kEl = document.createElement('div'); kEl.textContent = k;
+    const vEl = document.createElement('div');
+    vEl.innerHTML = `<span class="badge">${escapeHtml(String(v))}</span>`;
+    kvEl.appendChild(kEl); kvEl.appendChild(vEl);
+  };
+  if (!obj || !Object.keys(obj).length) {
+    add('Статус','Немає розпізнаних полів');
+    return;
+  }
+  Object.entries(obj).forEach(([k,v]) => add(k, Array.isArray(v) ? JSON.stringify(v) : v));
+}
+
+function renderAdvice(arr){
+  adviceEl.innerHTML = '';
+  if (!arr.length) {
+    const li = document.createElement('li');
+    li.textContent = 'Проблем не виявлено або потрібні додаткові дані.';
+    adviceEl.appendChild(li);
+    return;
+  }
+  arr.forEach(x=>{
+    const li = document.createElement('li');
+    li.textContent = x;
+    adviceEl.appendChild(li);
+  });
+}
+
 </script>
 </body>
 </html>
