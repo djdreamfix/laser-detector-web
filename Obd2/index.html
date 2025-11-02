@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OBD Analyzer</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg:#f9f9fb; --card:#ffffff; --text:#111; --muted:#6b7280; --border:#e5e7eb;
+    --accent:#007aff; --accent-d:#0051a8;
+    --ok:#e8fff0; --warn:#fff7e6; --fail:#ffecec; --badge:#eef2ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif; }
+  header { position: sticky; top: 0; z-index: 10; background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 14px 16px; text-align:center; font-weight:600; font-size:18px; }
+  main { padding: 16px; max-width: 760px; margin: 0 auto; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.04); margin-bottom: 16px; }
+  .title { font-weight: 600; font-size: 16px; margin-bottom: 8px; }
+  .subtitle { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .btn { display:block; width:100%; padding:14px; border:none; border-radius:12px; font-size:16px; font-weight:600;
+    background:var(--accent); color:#fff; text-align:center; }
+  .btn:active { background: var(--accent-d); }
+  .btn-secondary { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .kv { display:grid; grid-template-columns: 180px 1fr; gap:8px 12px; }
+  .badge { display:inline-block; padding:4px 8px; border-radius:8px; background:var(--badge); }
+  .list { list-style: none; margin:0; padding:0; }
+  .list li { margin: 6px 0; }
+  .muted { color: var(--muted); }
+  .pill { display:inline-block; padding:4px 8px; border-radius:20px; background:#eef2ff; margin:2px 4px 0 0; }
+  canvas { width:100%; height:180px; background:#fff; border:1px solid var(--border); border-radius:12px; }
+  .divider { height:1px; background:var(--border); margin:12px 0; }
+  .small { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>OBD Analyzer</header>
+<main>
+
+  <!-- Upload -->
+  <div class="card">
+    <div class="title">Додай фото екрану сканера</div>
+    <div class="subtitle">Автоматично: OCR → парсинг (V519) → поради → оновлення бази DTC</div>
+    <input id="file" type="file" accept="image/*" capture="environment" class="btn" />
+    <div class="row" style="margin-top:8px">
+      <button id="useDemo" class="btn btn-secondary">Спробувати демо</button>
+    </div>
+    <div class="small muted" style="margin-top:8px">Порада: роби фото фронтально, без відблисків. OCR: eng+rus.</div>
+  </div>
+
+  <!-- Result -->
+  <div class="card" id="resultCard">
+    <div class="title">Результат</div>
+    <div class="subtitle" id="statusText">Завантаж фото для аналізу…</div>
+    <div id="quickSummary" class="row" style="margin-top:8px"></div>
+    <div class="divider"></div>
+    <div class="kv" id="kv"></div>
+    <div class="divider"></div>
+    <div class="title">Поради</div>
+    <ul id="advice" class="list"></ul>
+  </div>
+
+  <!-- Charts -->
+  <div class="card">
+    <div class="title">Графіки (останні дані)</div>
+    <div class="subtitle">RPM, температура ОЖ, тиск MAP, MAF, TPS</div>
+    <canvas id="chartRPM"></canvas>
+    <canvas id="chartECT" style="margin-top:10px"></canvas>
+    <canvas id="chartMAP" style="margin-top:10px"></canvas>
+    <canvas id="chartMAF" style="margin-top:10px"></canvas>
+    <canvas id="chartTPS" style="margin-top:10px"></canvas>
+  </div>
+
+  <!-- DTC Base -->
+  <div class="card">
+    <div class="title">Локальна база DTC</div>
+    <div class="subtitle">Автоматично поповнюється при знаходженні нових кодів</div>
+    <div class="kv" id="dtcBaseView"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="downloadDB" class="btn btn-secondary">Експорт бази (JSON)</button>
+      <input id="importFile" type="file" accept="application/json" class="btn btn-secondary" />
+    </div>
+  </div>
+
+</main>
+
+<script src="https://unpkg.com/tesseract.js@v4.0.2/dist/tesseract.min.js"></script>
+<script>
+/* ========= IndexedDB ========= */
+let db;
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('obd_app_db', 3);
+    req.onupgradeneeded = (e) => {
+      db = e.target.result;
+      if (!db.objectStoreNames.contains('dtc')) db.createObjectStore('dtc', { keyPath: 'code' });
+      if (!db.objectStoreNames.contains('series')) db.createObjectStore('series', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = (e) => reject(e);
+  });
+}
+async function openDBIfNeeded(){ if(!db) await openDB(); }
+async function dbPut(store, obj){
+  await openDBIfNeeded();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).put(obj);
+    tx.oncomplete=()=>resolve(true);
+    tx.onerror=(e)=>reject(e);
+  });
+}
+async function dbGet(store, key){
+  await openDBIfNeeded();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=(e)=>reject(e);
+  });
+}
+async function dbGetAll(store){
+  await openDBIfNeeded();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess=()=>resolve(req.result||[]);
+    req.onerror=(e)=>reject(e);
+  });
+}
+async function dbDeleteAll(store){
+  await openDBIfNeeded();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(store,'readwrite');
+    const req=tx.objectStore(store).clear();
+    req.onsuccess=()=>resolve(true);
+    req.onerror=(e)=>reject(e);
+  });
+}
+
+/* ========= Seed families ========= */
+async function seedFamilies(){
+  const families = [
+    { code:'P03xx', name:'Пропуски запалювання', desc:'Виявлені пропуски запалювання.', actions:[
+      "Перевірити свічки, котушки, дроти.",
+      "Перевірити форсунки та компресію.",
+      "Перевірити підсмок повітря."
+    ]},
+    { code:'P0171', name:'Збіднена суміш (Bank 1)', desc:'PCM виявив збіднену суміш.', actions:[
+      "Перевірити підсмок повітря, вакуумні шланги.",
+      "Перевірити MAF/MAP.",
+      "Перевірити тиск палива."
+    ]},
+    { code:'P0172', name:'Збагачена суміш (Bank 1)', desc:'PCM виявив збагачену суміш.', actions:[
+      "Перевірити форсунки (підтікання).",
+      "Перевірити регулятор тиску.",
+      "Оцінити роботу O2/AFR."
+    ]},
+    { code:'P0420', name:'Ефективність каталізатора низька (Bank 1)', desc:'Каталізатор неефективний.', actions:[
+      "Перевірити витоки вихлопу перед катом.",
+      "Оцінити датчики O2 (до/після кату).",
+      "Перевірити суміш."
+    ]},
+    { code:'P0103', name:'MAF — високий рівень сигналу', desc:'Високий сигнал з MAF (High input).', actions:[
+      "Оглянути проводку MAF (КЗ/обрив).",
+      "Очистити/замінити MAF.",
+      "Перевірити герметичність впуску."
+    ]}
+  ];
+  for (const f of families) await dbPut('dtc', f);
+}
+
+/* ========= UI refs ========= */
+const fileInput = document.getElementById('file');
+const statusText = document.getElementById('statusText');
+const kvEl = document.getElementById('kv');
+const adviceEl = document.getElementById('advice');
+const dtcBaseView = document.getElementById('dtcBaseView');
+const chartRPM = document.getElementById('chartRPM');
+const chartECT = document.getElementById('chartECT');
+const chartMAP = document.getElementById('chartMAP');
+const chartMAF = document.getElementById('chartMAF');
+const chartTPS = document.getElementById('chartTPS');
+const useDemoBtn = document.getElementById('useDemo');
+const importFile = document.getElementById('importFile');
+const downloadDB = document.getElementById('downloadDB');
+const quickSummary = document.getElementById('quickSummary');
+
+document.addEventListener('DOMContentLoaded', async ()=>{
+  await openDB();
+  const seeded = await dbGet('meta','seeded');
+  if(!seeded){ await seedFamilies(); await dbPut('meta',{key:'seeded', value:true}); }
+  await renderDTCBase();
+});
+
+/* ========= Main flow ========= */
+fileInput.addEventListener('change', async (e)=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  statusText.textContent = 'Розпізнаю фото…';
+  try {
+    const parsed = await ocrAndParse(f);
+    await ensureDTCs(parsed.КодиПомилок);
+    const tips = await buildAdvice(parsed);
+    await saveSeriesEntry(parsed);
+    await renderResult(parsed, tips);
+    await refreshCharts();
+  } catch(err){
+    statusText.textContent = 'Помилка розпізнавання. Спробуй інше фото.';
+  }
+});
+
+/* Demo */
+useDemoBtn.addEventListener('click', async ()=>{
+  const demoText = `
+    Data Stream
+    DTC.CNT: 1
+    DTCFRZF: P0012
+    FUELSYS1: CL
+    FUELSYS2: -4
+    LOAD PCT(%): 68.2
+    ETC(°C): 90
+    RPM: 760
+    MAP(kPa): 45
+    MAF(g/s): 3.2
+    TPS(%): 12.0
+    O2 B1 S1(V): 0.78
+    O2 B1 S2(V): 0.12
+    SHRTFT1(%): 2.3
+    LONGFT1(%): 5.0
+    SHRTFT2(%): -4.0
+    LONGFT2(%): 1.0
+  `;
+  statusText.textContent = 'Аналізую демо дані…';
+  const parsed = parseV519(demoText);
+  await ensureDTCs(parsed.КодиПомилок);
+  const tips = await buildAdvice(parsed);
+  await saveSeriesEntry(parsed);
+  await renderResult(parsed, tips);
+  await refreshCharts();
+});
+
+/* ========= OCR + parse (V519) ========= */
+async function ocrAndParse(file){
+  const img = await createImageBitmap(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width; canvas.height = img.height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img,0,0);
+  const { data: { text } } = await Tesseract.recognize(canvas.toDataURL(),'eng+rus',{ });
+  return parseV519(text);
+}
+
+/* ========= V519 parser: розпізнавання всіх основних параметрів ========= */
+function parseV519(text) {
+  const out = {};
+  const T = text.replace(/\s+/g,' ').trim();
+
+  // DTC
+  const dtc = [...T.matchAll(/\b([PBCU]\d{4})\b/gi)].map(m=>m[1].toUpperCase());
+  if (dtc.length) out.КодиПомилок = dtc;
+
+  // Freeze Frame
+  const frz = T.match(/\bDTCFRZE\b[:\s]*([PBCU]\d{4})\b/i);
+  if (frz) out.FreezeFrameDTC = frz[1].toUpperCase();
+
+  // Data Stream
+  const cnt = T.match(/\bDTC\.CNT\b[:\s]*(\d+)\b/i);
+  if (cnt) out.DTCCnt = +cnt[1];
+  const frzf = T.match(/\bDTCFRZF\b[:\s]*([PBCU]\d{4})\b/i);
+  if (frzf) out.DTCFrozen = frzf[1].toUpperCase();
+
+  // Generic numeric helper
+  const num = '(-?\\d{1,5}(?:\\.\\d{1,3})?)';
+
+  // Engine basics
+  const rpm = T.match(new RegExp(`\\bRPM\\b[:\\s]*${num}\\b`, 'i'));
+  if (rpm) out.Обороти = +rpm[1];
+  const ect = T.match(/\b(ECT|ETC|Coolant)\b[:\s]*(-?\d{1,4})\b/i);
+  if (ect) out.ТемператураОЖ = +ect[2];
+  const iat = T.match(/\b(IAT|Intake Air Temp)\b[:\s]*(-?\d{1,4})\b/i);
+  if (iat) out.ТемператураВпуску = +iat[2];
+  const eot = T.match(/\b(EOT|Engine Oil Temp)\b[:\s]*(-?\d{1,4})\b/i);
+  if (eot) out.ТемператураОливи = +eot[2];
+
+  // Load / throttle / ignition
+  const load = T.match(/\bLOAD[_\s]?PCT\b[:\s]*(-?\d{1,3}(?:\.\d)?)\b/i);
+  if (load) out.НавантаженняВідсоток = +load[1];
+  const tps = T.match(/\b(TPS|Throttle)\b[:\s]*(-?\d{1,3}(?:\.\d)?)\s?%?\b/i);
+  if (tps) out.ПоложенняДроселяВідсоток = +tps[2];
+  const spark = T.match(/\b(SPARKADV|Ignition Advance)\b[:\s]*(-?\d{1,3}(?:\.\d)?)\b/i);
+  if (spark) out.КутЗапалюванняГрад = +spark[2];
+
+  // Airflow / pressure
+  const maf = T.match(/\bMAF\b.*?[:\s]*(-?\d{1,3}(?:\.\d{1,3})?)\s?g\/s\b/i);
+  if (maf) out.МасоваВитратаПовітря_gs = +maf[1];
+  const map = T.match(/\bMAP\b.*?[:\s]*(-?\d{1,3}(?:\.\d{1,3})?)\s?kPa\b/i);
+  if (map) out.ТискMAP_kPa = +map[1];
+  const baro = T.match(/\bBARO\b.*?[:\s]*(-?\d{1,3}(?:\.\d{1,3})?)\s?kPa\b/i);
+  if (baro) out.АтмТиск_kPa = +baro[1];
+
+  // Fuel system statuses
+  const fs1 = T.match(/\bFUELSYS1\b[:\s]*(OL(?:-DRIVE|-FAULT)?|CL(?:-FAULT)?|NA|OK|-?\d{1,3})\b/i);
+  if (fs1) {
+    if (/^-?\d/.test(fs1[1])) out.КороткостроковаКорекція1 = +fs1[1];
+    else out.ПаливнаСистема1 = fs1[1].toUpperCase();
+  }
+  const fs2 = T.match(/\bFUELSYS2\b[:\s]*(OL(?:-DRIVE|-FAULT)?|CL(?:-FAULT)?|NA|OK|-?\d{1,3})\b/i);
+  if (fs2) {
+    if (/^-?\d/.test(fs2[1])) out.КороткостроковаКорекція2 = +fs2[1];
+    else out.ПаливнаСистема2 = fs2[1].toUpperCase();
+  }
+
+  // Fuel trims (STFT/LTFT) banks
+  const stft1 = T.match(/\b(SHRTFT1|STFT1)\b[:\s]*(-?\d{1,3}(?:\.\d{1,2})?)\s?%?\b/i);
+  if (stft1) out.КороткостроковаКорекція1 = +stft1[2];
+  const stft2x = T.match(/\b(SHRTFT2|STFT2)\b[:\s]*(-?\d{1,3}(?:\.\d{1,2})?)\s?%?\b/i);
+  if (stft2x) out.КороткостроковаКорекція2 = +stft2x[2];
+  const ltft1 = T.match(/\b(LONGFT1|LTFT1)\b[:\s]*(-?\d{1,3}(?:\.\d{1,2})?)\s?%?\b/i);
+  if (ltft1) out.ДовгостроковаКорекція1 = +ltft1[2];
+  const ltft2 = T.match(/\b(LONGFT2|LTFT2)\b[:\s]*(-?\d{1,3}(?:\.\d{1,2})?)\s?%?\b/i);
+  if (ltft2) out.ДовгостроковаКорекція2 = +ltft2[2];
+
+  // O2 sensors (voltages / lambda)
+  const o2b1s1 = T.match(/\b(O2.*B1.*S1|O2S11)\b[:\s]*([0-1](?:\.\d{1,3})?)\s?V\b/i);
+  if (o2b1s1) out.O2_B1S1_V = +o2b1s1[2];
+  const o2b1s2 = T.match(/\b(O2.*B1.*S2|O2S12)\b[:\s]*([0-1](?:\.\d{1,3})?)\s?V\b/i);
+  if (o2b1s2) out.O2_B1S2_V = +o2b1s2[2];
+  const o2b2s1 = T.match(/\b(O2.*B2.*S1|O2S21)\b[:\s]*([0-1](?:\.\d{1,3})?)\s?V\b/i);
+  if (o2b2s1) out.O2_B2S1_V = +o2b2s1[2];
+  const o2b2s2 = T.match(/\b(O2.*B2.*S2|O2S22)\b[:\s]*([0-1](?:\.\d{1,3})?)\s?V\b/i);
+  if (o2b2s2) out.O2_B2S2_V = +o2b2s2[2];
+
+  // AFR / Lambda (якщо зустрічається)
+  const afr = T.match(/\b(AFR|Lambda)\b[:\s]*(-?\d{1,2}\.\d{1,3})\b/i);
+  if (afr) out.АФР = +afr[2];
+
+  // EVAP, EGR, Secondary Air, etc. readiness
+  const imPairs = [...T.matchAll(/\b(MIL Status|Misfire Monitor|Fuel System Mon|Comp Component|Catalyst Mon|Htd Catalyst|Evap System Mon|O2 Sensor Mon|O2 Sensor Htr|EGR System|Secondary Air)\b[:\s]*(OK|INC|NA|OFF|ON)\b/gi)];
+  if (imPairs.length) out.IMReadiness = imPairs.map(m => ({ name: m[1], status: m[2].toUpperCase() }));
+
+  // Speed / VSS
+  const spd = T.match(/\b(Speed|VSS)\b[:\s]*(-?\d{1,3})\s?(km\/h|mph)?\b/i);
+  if (spd) { out.Швидкість = +spd[2]; out.ОдиниціШвидкості = spd[3] || 'km/h'; }
+
+  // Battery / alternator
+  const volt = T.match(/\b(Battery|Voltage)\b[:\s]*([0-9]{1,2}\.?[0-9])\s?V\b/i);
+  if (volt) out.НапругаАКБ = +volt[2];
+
+  // Intake manifold absolute pressure (alternate)
+  const mapHg = T.match(/\bMAP\b.*?[:\s]*(-?\d{1,3}(?:\.\d{1,3})?)\s?inHg\b/i);
+  if (mapHg) out.ТискMAP_inHg = +mapHg[1];
+
+  // Mode 6 (Sensor monitor)
+  const testVal = T.match(/\bTest\s*value\b[:\s]*([-\d\.]+)\b/i);
+  const minLim  = T.match(/\bMin\s*Limit\b[:\s]*([-\d\.]+)\b/i);
+  const maxLim  = T.match(/\bMax\s*Limit\b[:\s]*([-\d\.]+)\b/i);
+  const status  = T.match(/\bStatus\b[:\s]*(Fail|Pass|OK)\b/i);
+  if (testVal || minLim || maxLim || status) {
+    out.Mode6 = { testValue: testVal ? +testVal[1] : null, min: minLim ? +minLim[1] : null, max: maxLim ? +maxLim[1] : null, status: status ? status[1].toUpperCase() : null };
+  }
+
+  // Component Test (EVAP, EGR)
+  if (/Evaporative system leak test/i.test(T)) {
+    out.ComponentTest = "EVAP Leak Test";
+    const st = T.match(/\b(Pass|Fail)\b/i);
+    if (st) out.ComponentStatus = st[1].toUpperCase();
+  }
+  if (/EGR/i.test(T) && /Component test/i.test(T)) {
+    out.ComponentTest = (out.ComponentTest ? out.ComponentTest + ' + ' : '') + 'EGR Test';
+  }
+
+  // MIL
+  const mil = T.match(/\b(MIL|Check\s*Engine)\b.*\b(ON|OFF)\b/i);
+  if (mil) out.МІЛ = mil[2].toUpperCase();
+
+  return out;
+}
+
+/* ========= DTC online ensure ========= */
+async function ensureDTCs(codes){
+  if(!Array.isArray(codes) || !codes.length) return;
+  for(const code of codes){
+    const existing = await dbGet('dtc', code);
+    if (existing) continue;
+    try {
+      const info = await fetchDTCViaProxy(code);
+      const record = {
+        code,
+        name: info.name || 'Невідомий код',
+        desc: info.desc || '',
+        actions: (info.actions && info.actions.length) ? info.actions : [
+          "Перевірити проводку/роз'єм пов'язаних датчиків.",
+          "Перевірити значення сенсорів у Data Stream.",
+          "Переглянути рекомендації виробника (TSB)."
+        ]
+      };
+      await dbPut('dtc', record);
+      await renderDTCBase();
+    } catch(e){ /* тихий фолбек */ }
+  }
+}
+async function fetchDTCViaProxy(code){
+  const target = `https://obd.avto.pro/${code.toLowerCase()}/`;
+  const url = `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Проксі недоступний');
+  const data = await res.json();
+  const html = data.contents || '';
+  return extractFromHTML(html);
+}
+function extractFromHTML(html){
+  const name = extractBetween(html,'<h1','</h1>').replace(/<[^>]+>/g,'').trim();
+  let desc = '';
+  const metaMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i);
+  if (metaMatch) desc = metaMatch[1].trim();
+  const actions = [];
+  const ulParts = html.split(/<\/ul>/i);
+  ulParts.forEach(part=>{
+    const items = part.match(/<li[^>]*>(.*?)<\/li>/gi);
+    if(items){
+      items.forEach(li=>{
+        const txt = li.replace(/<[^>]+>/g,'').trim();
+        if(txt.length > 5) actions.push(txt);
+      });
+    }
+  });
+  return { name, desc, actions };
+}
+function extractBetween(html, startTag, endTag){
+  const start = html.indexOf(startTag);
+  if (start === -1) return '';
+  const end = html.indexOf(endTag, start);
+  if (end === -1) return '';
+  return html.substring(start, end + endTag.length);
+}
+
+/* ========= Advice ========= */
+async function lookupDTC(code){
+  const rec = await dbGet('dtc', code);
+  if (rec) return rec;
+  const fam = code.replace(/(\d)\d{2}$/, '$1xx');
+  const famRec = await dbGet('dtc', fam);
+  if (famRec) return famRec;
+  return { code, name:"Невідомий код", desc:"Немає запису в базі.", actions:[
+    "Перевірити freeze frame та супутні параметри.",
+    "Зчитати додаткові коди і on-board монітори.",
+    "Перевірити живлення, масу, проводку."
+  ]};
+}
+function dedupe(arr){ const s=new Set(); const out=[]; for(const x of arr){ const k=x.trim(); if(!s.has(k)){ s.add(k); out.push(x); } } return out; }
+async function buildAdvice(data){
+  const tips = [];
+
+  // DTC based
+  if (data.КодиПомилок) {
+    for (const code of data.КодиПомилок) {
+      const info = await lookupDTC(code);
+      tips.push(`Код ${code}: ${info.name}. ${info.desc || ''}`.trim());
+      (info.actions || []).forEach(a => tips.push("• " + a));
+    }
+  }
+
+  // MIL
+  if (data.МІЛ === 'ON') tips.push("MIL: ON — усунь активні DTC та заверш цикл їзди.");
+
+  // Battery voltage
+  if (typeof data.НапругаАКБ === 'number') {
+    if (data.НапругаАКБ < 11.8) tips.push("Низька напруга АКБ: перевірити акумулятор та заряд генератора.");
+    else if (data.НапругаАКБ > 14.8) tips.push("Висока напруга АКБ: можливий перезаряд — перевірити регулятор.");
+  }
+
+  // Coolant / IAT / oil temp
+  if (typeof data.ТемператураОЖ === 'number') {
+    if (data.ТемператураОЖ < -40 || data.ТемператураОЖ > 150) tips.push("Температура ОЖ поза діапазоном — датчик/дані некоректні.");
+    else if (data.ТемператураОЖ > 115) tips.push("Перегрів: перевірити термостат, вентилятори, рівень антифризу, чистоту радіатора.");
+  }
+  if (typeof data.ТемператураВпуску === 'number' && data.ТемператураВпуску > 60) {
+    tips.push("Висока температура впуску: перевірити теплові екрани/потік повітря.");
+  }
+  if (typeof data.ТемператураОливи === 'number' && data.ТемператураОливи > 130) {
+    tips.push("Висока температура оливи: перевірити охолодження та режим експлуатації.");
+  }
+
+  // MAP/MAF sanity
+  if (typeof data.ТискMAP_kPa === 'number') {
+    if (data.Обороти && data.Обороти ~> 700 && data.ТискMAP_kPa > 60) {
+      tips.push("Високий MAP на холостих: можливий підсмок повітря або невірні показання.");
+    }
+  }
+  if (typeof data.МасоваВитратаПовітря_gs === 'number' && typeof data.Обороти === 'number') {
+    // груба оцінка: 0.8–1.2 г/с на 1 л двигуна на ХХ (без об'єму двигуна робимо загальні підказки)
+    if (data.МасоваВитратаПовітря_gs < 1 && data.Обороти < 900) {
+      tips.push("Низький MAF на ХХ: перевірити забруднення MAF/фільтра, підсмок повітря.");
+    }
+  }
+
+  // Throttle / ignition
+  if (typeof data.ПоложенняДроселяВідсоток === 'number' && data.ПоложенняДроселяВідсоток > 30 && (data.Обороти||0) низькі) {
+    tips.push("Високий TPS при низьких обертах: перевірити датчик TPS або механіку дроселя.");
+  }
+
+  // Fuel trims
+  const trims = [
+    { k:'КороткостроковаКорекція1', label:'STFT1' },
+    { k:'КороткостроковаКорекція2', label:'STFT2' },
+    { k:'ДовгостроковаКорекція1', label:'LTFT1' },
+    { k:'ДовгостроковаКорекція2', label:'LTFT2' },
+  ];
+  for (const t of trims) {
+    const v = data[t.k];
+    if (typeof v === 'number') {
+      if (Math.abs(v) <= 5) tips.push(`${t.label}: в межах норми (±5%).`);
+      else if (Math.abs(v) <= 25) tips.push(`${t.label}: відхилення (±10–25%). Перевірити підсмок повітря, тиск палива, форсунки.`);
+      else tips.push(`${t.label}: значне відхилення (>±25%). Діагностувати впуск/MAF, паливний насос/регулятор, форсунки.`);
+    }
+  }
+
+  // O2 sensors behavior
+  const preCat = [data.O2_B1S1_V, data.O2_B2S1_V].filter(v=>typeof v==='number');
+  const postCat = [data.O2_B1S2_V, data.O2_B2S2_V].filter(v=>typeof v==='number');
+  if (preCat.length && postCat.length) {
+    const preAvg = avg(preCat), postAvg = avg(postCat);
+    if (Math.abs(preAvg - postAvg) < 0.05) tips.push("O2 до/після кату схожі — можлива низька ефективність каталізатора (перевірити P0420/P0430).");
+  }
+  preCat.forEach(v=>{
+    if (v < 0.05 || v > 0.95) tips.push("O2 перед катом за межами типового діапазону — перевірити датчик/підігрів/суміш.");
+  });
+
+  // I/M readiness
+  if (Array.isArray(data.IMReadiness)) {
+    const inc = data.IMReadiness.filter(x => x.status === 'INC');
+    if (inc.length) tips.push(`Монітори не готові: ${inc.map(x=>x.name).join(', ')}. Заверши цикл їзди і перевір повторно.`);
+  }
+
+  // Mode 6
+  if (data.Mode6 && data.Mode6.status) {
+    if (data.Mode6.status === 'FAIL') tips.push("Mode 6: тест не пройдено. Переглянути Test/Min/Max, ідентифікувати сенсор/субтест, перевірити датчик/ланцюг.");
+    if (data.Mode6.status === 'PASS' || data.Mode6.status === 'OK') tips.push("Mode 6: тест пройдено.");
+  }
+
+  return dedupe(tips);
+}
+function avg(arr){ return arr.reduce((a,b)=>a+b,0)/arr.length; }
+
+/* ========= Series & Charts ========= */
+async function saveSeriesEntry(parsed){
+  const entry = { id: crypto.randomUUID(), ts: Date.now(), screenType: 'data_stream', data: parsed };
+  await dbPut('series', entry);
+  return entry;
+}
+async function getRecentSeries(limit=60){
+  const all = await dbGetAll('series');
+  return all.slice(-limit);
+}
+function plotLine(canvasEl, values, color='#007aff', labelMin='min', labelMax='max'){
+  const cvs = canvasEl;
+  const ctx = cvs.getContext('2d');
+  const w = cvs.width = cvs.clientWidth;
+  const h = cvs.height = 180;
+  ctx.clearRect(0,0,w,h);
+  if (!values.length) {
+    ctx.fillStyle = '#999';
+    ctx.font = '12px system-ui';
+    ctx.fillText('Немає даних для графіка', 12, 24);
+    return;
+  }
+  const min = Math.min(...values), max = Math.max(...values);
+  const pad = 10;
+  ctx.strokeStyle = '#e5e7eb';
+  ctx.beginPath(); ctx.moveTo(pad, h - pad); ctx.lineTo(w - pad, h - pad); ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath();
+  values.forEach((v, i) => {
+    const x = pad + (i / Math.max(1, values.length - 1)) * (w - pad*2);
+    const y = pad + (1 - (v - min) / Math.max(1, (max - min))) * (h - pad*2);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.fillStyle = '#6b7280'; ctx.font = '11px system-ui';
+  ctx.fillText(`${labelMin} ${min.toFixed(2)}`, w - 140, h - 26);
+  ctx.fillText(`${labelMax} ${max.toFixed(2)}`, w - 140, h - 12);
+}
+async function refreshCharts(){
+  const series = await getRecentSeries(60);
+  const rpmVals = series.map(s => s.data.Обороти).filter(v => typeof v === 'number');
+  const ectVals = series.map(s => s.data.ТемператураОЖ).filter(v => typeof v === 'number');
+  const mapVals = series.map(s => s.data.ТискMAP_kPa ?? s.data.ТискMAP_inHg).filter(v => typeof v === 'number');
+  const mafVals = series.map(s => s.data.МасоваВитратаПовітря_gs).filter(v => typeof v === 'number');
+  const tpsVals = series.map(s => s.data.ПоложенняДроселяВідсоток).filter(v => typeof v === 'number');
+  plotLine(chartRPM, rpmVals, '#d946ef', 'min', 'max');
+  plotLine(chartECT, ectVals, '#2563eb', 'min', 'max');
+  plotLine(chartMAP, mapVals, '#10b981', 'min', 'max');
+  plotLine(chartMAF, mafVals, '#f59e0b', 'min', 'max');
+  plotLine(chartTPS, tpsVals, '#8b5cf6', 'min', 'max');
+}
+
+/* ========= Render ========= */
+function renderKV(obj){
+  const kvEl = document.getElementById('kv');
+  const quickSummary = document.getElementById('quickSummary');
+  kvEl.innerHTML = '';
+  quickSummary.innerHTML = '';
+  const add = (k,v) => {
+    const kEl = document.createElement('div'); kEl.textContent = k;
+    const vEl = document.createElement('div'); vEl.innerHTML = `<span class="badge">${escapeHtml(String(v))}</span>`;
+    kvEl.appendChild(kEl); kvEl.appendChild(vEl);
+  };
+  const addPill = (text) => {
+    const pill = document.createElement('div'); pill.className='pill'; pill.textContent = text;
+    quickSummary.appendChild(pill);
+  };
+  if (Array.isArray(obj.КодиПомилок) && obj.КодиПомилок.length) addPill(`DTC: ${obj.КодиПомилок.join(', ')}`);
+  if (typeof obj.Обороти === 'number') addPill(`RPM: ${obj.Обороти}`);
+  if (typeof obj.ТемператураОЖ === 'number') addPill(`ECT: ${obj.ТемператураОЖ}°C`);
+  if (typeof obj.ТискMAP_kPa === 'number') addPill(`MAP: ${obj.ТискMAP_kPa} kPa`);
+  if (typeof obj.МасоваВитратаПовітря_gs === 'number') addPill(`MAF: ${obj.МасоваВитратаПовітря_gs} g/s`);
+  if (typeof obj.ПоложенняДроселяВідсоток === 'number') addPill(`TPS: ${obj.ПоложенняДроселяВідсоток}%`);
+
+  if (!obj || !Object.keys(obj).length) { add('Статус','Немає розпізнаних полів'); return; }
+  Object.entries(obj).forEach(([k,v]) => add(k, Array.isArray(v) ? JSON.stringify(v) : v));
+}
+function renderAdvice(arr){
+  const adviceEl = document.getElementById('advice');
+  const statusText = document.getElementById('statusText');
+  adviceEl.innerHTML = '';
+  if (!arr.length) {
+    const li = document.createElement('li');
+    li.textContent = 'Проблем не виявлено або потрібні додаткові дані.';
+    adviceEl.appendChild(li);
+  } else {
+    arr.forEach(x=>{
+      const li = document.createElement('li'); li.textContent = x; adviceEl.appendChild(li);
+    });
+  }
+  statusText.textContent = 'Готово';
+}
+async function renderDTCBase(){
+  const dtcBaseView = document.getElementById('dtcBaseView');
+  dtcBaseView.innerHTML = '';
+  const all = await dbGetAll('dtc');
+  const keys = all.map(x=>x.code).sort();
+  if (!keys.length) {
+    const d1 = document.createElement('div'); d1.textContent = '—';
+    const d2 = document.createElement('div'); d2.textContent = 'База порожня';
+    dtcBaseView.appendChild(d1); dtcBaseView.appendChild(d2);
+    return;
+  }
+  keys.slice(0, 30).forEach(code=>{
+    const rec = all.find(x=>x.code===code);
+    const kEl = document.createElement('div'); kEl.textContent = code;
+    const vEl = document.createElement('div');
+    vEl.innerHTML = `<span class="badge">${escapeHtml(rec.name||'')}</span> <span class="small">${escapeHtml(rec.desc||'')}</span>`;
+    dtcBaseView.appendChild(kEl); dtcBaseView.appendChild(vEl);
+  });
+  if (keys.length > 30) {
+    const moreK = document.createElement('div'); moreK.textContent = '…';
+    const moreV = document.createElement('div'); moreV.textContent = `Показано 30 з ${keys.length} записів`;
+    dtcBaseView.appendChild(moreK); dtcBaseView.appendChild(moreV);
+  }
+}
+
+/* ========= DB import/export ========= */
+downloadDB.addEventListener('click', async ()=>{
+  const dtc = await dbGetAll('dtc');
+  const series = await dbGetAll('series');
+  const payload = { dtc, series, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'obd_analyzer_db.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+importFile.addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const text = await f.text();
+  try {
+    const data = JSON.parse(text);
+    await dbDeleteAll('dtc'); await dbDeleteAll('series');
+    if (Array.isArray(data.dtc)) for (const rec of data.dtc) await dbPut('dtc', rec);
+    if (Array.isArray(data.series)) for (const s of data.series) await dbPut('series', s);
+    await renderDTCBase(); await refreshCharts();
+    alert('Імпорт виконано');
+  } catch(err) { alert('Помилка імпорту'); }
+});
+
+/* ========= Utils ========= */
+function escapeHtml(s){ return s.replace(/[&<>"]/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+</script>
+</body>
+</html>
