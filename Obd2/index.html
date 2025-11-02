@@ -489,7 +489,7 @@ async function buildAdvice(data){
 
   // MAP/MAF sanity
   if (typeof data.ТискMAP_kPa === 'number') {
-    if (data.Обороти && data.Обороти ~> 700 && data.ТискMAP_kPa > 60) {
+    if (data.Обороти && data.Обороти >= 700 && data.ТискMAP_kPa > 60) {
       tips.push("Високий MAP на холостих: можливий підсмок повітря або невірні показання.");
     }
   }
