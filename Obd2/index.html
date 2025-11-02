@@ -417,7 +417,7 @@ async function fetchDTCViaProxy(code){
   return extractFromHTML(html);
 }
 function extractFromHTML(html){
-  // Назва коду
+  // Назва коду (h1)
   const name = extractBetween(html,'<h1','</h1>').replace(/<[^>]+>/g,'').trim();
 
   // Короткий опис (meta description)
@@ -425,19 +425,20 @@ function extractFromHTML(html){
   const metaMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i);
   if (metaMatch) desc = metaMatch[1].trim();
 
-  // Витягуємо лише релевантні <li>
+  // Витягуємо <li>, але фільтруємо
   const actions = [];
   const items = html.match(/<li[^>]*>(.*?)<\/li>/gi) || [];
   items.forEach(li=>{
     const txt = li.replace(/<[^>]+>/g,'').trim();
     // Фільтр: беремо лише ті, де є ключові слова
-    if (/причин|symptom|solution|cause|ремонт|совет|рекомендац|diagnos|repair/i.test(txt)) {
+    if (/причин|симптом|решени|solution|cause|symptom|repair|diagnos|ремонт|совет|рекомендац/i.test(txt)) {
       actions.push(txt);
     }
   });
 
   return { name, desc, actions };
 }
+
 function extractBetween(html, startTag, endTag){
   const start = html.indexOf(startTag);
   if (start === -1) return '';
@@ -445,6 +446,7 @@ function extractBetween(html, startTag, endTag){
   if (end === -1) return '';
   return html.substring(start, end + endTag.length);
 }
+
 
 /* ========= Advice ========= */
 async function lookupDTC(code){
