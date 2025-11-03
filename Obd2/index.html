@@ -350,7 +350,7 @@ function startCropperFromUrl(url){
 
   tempImgEl.onload = () => {
     cropper = new Cropper(tempImgEl, {
-      aspectRatio: NaN,
+      aspectRatio: 1,
       viewMode: 1,
       autoCropArea: 0.9,
       movable: true,
