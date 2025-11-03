@@ -5,11 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>OBD Analyzer</title>
 
-<!-- Cropper + Tesseract -->
-<link href="https://unpkg.com/cropperjs/dist/cropper.min.css" rel="stylesheet" />
-<script src="https://unpkg.com/cropperjs/dist/cropper.min.js"></script>
-<script src="https://unpkg.com/tesseract.js@v5.0.3/dist/щtesseract.min.js"></script>
-
 <style>
   :root{
     --bg:#f9f9fb; --card:#ffffff; --text:#111; --muted:#6b7280; --border:#e5e7eb;
@@ -40,6 +35,15 @@
   details.debug pre{margin-top:8px;padding:8px;background:#f7f7f7;border-radius:8px;font-family:Menlo,SFMono-Regular,monospace;white-space:pre-wrap;word-break:break-word}
   .hidden{display:none !important}
 </style>
+
+<!-- dev tools -->
+<script src="https://unpkg.com/eruda"></script><script>eruda.init();</script>
+<!-- Cropper + Tesseract -->
+<link href="https://unpkg.com/cropperjs/dist/cropper.min.css" rel="stylesheet" />
+<script src="https://unpkg.com/cropperjs/dist/cropper.min.js"></script>
+<script src="https://unpkg.com/tesseract.js@v5.0.3/dist/щtesseract.min.js"></script>
+
+
 </head>
 <body>
 <header>OBD Analyzer</header>
@@ -105,8 +109,6 @@
 
 </main>
 
-<!-- dev tools -->
-<script src="https://unpkg.com/eruda"></script><script>eruda.init();</script>
 
 <script>
 /* ========= IndexedDB (як у твоєму файлі) ========= */
