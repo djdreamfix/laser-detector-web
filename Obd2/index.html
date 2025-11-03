@@ -36,6 +36,8 @@
   .divider { height:1px; background:var(--border); margin:12px 0; }
   .small { font-size: 12px; color: var(--muted); }
 </style>
+<link  href="https://unpkg.com/cropperjs/dist/cropper.min.css" rel="stylesheet"/>
+<script src="https://unpkg.com/cropperjs"></script>
 </head>
 <body>
 <header>OBD Analyzer</header>
@@ -50,6 +52,16 @@
       <button id="useDemo" class="btn btn-secondary">Спробувати демо</button>
     </div>
     <div class="small muted" style="margin-top:8px">Порада: роби фото фронтально, без відблисків. OCR: eng+rus.</div>
+  <!-- Кнопка для вибору фото з галереї -->
+<input type="file" id="fileInput" accept="image/*" style="display:none;">
+<button id="pickPhotoBtn">📷 Додати фото</button>
+
+<!-- Кнопка для обрізки -->
+<button id="cropBtn" style="display:none;">Обрізати</button>
+
+<!-- Canvas для відображення результату -->
+<canvas id="canvas"></canvas>
+
   </div>
 
   <!-- Result -->
@@ -200,6 +212,64 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   await renderDTCBase();
 });
 
+const fileInput = document.getElementById('fileInput');
+const pickPhotoBtn = document.getElementById('pickPhotoBtn');
+const cropBtn = document.getElementById('cropBtn');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let cropper;
+let img;
+
+// натискаєш кнопку → відкривається вибір фото
+pickPhotoBtn.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  img = document.createElement('img');
+  img.src = URL.createObjectURL(file);
+  img.style.maxWidth = '100%';
+  document.body.appendChild(img);
+
+  if (cropper) cropper.destroy();
+  cropper = new Cropper(img, {
+    aspectRatio: NaN,
+    viewMode: 1,
+    autoCropArea: 0.9,
+    movable: true,
+    zoomable: true,
+    scalable: true
+  });
+
+  cropBtn.style.display = 'inline-block';
+});
+
+// натискаєш «Обрізати» → отримуєш тільки екран
+cropBtn.addEventListener('click', () => {
+  if (!cropper) return;
+  const croppedCanvas = cropper.getCroppedCanvas();
+  canvas.width = croppedCanvas.width;
+  canvas.height = croppedCanvas.height;
+  ctx.drawImage(croppedCanvas, 0, 0);
+
+  // тепер canvas містить тільки екран сканера
+  // передаємо його в OCR
+  croppedCanvas.toBlob(blob => {
+    // наприклад, якщо ти використовуєш Tesseract.js:
+    Tesseract.recognize(blob, 'eng').then(({ data: { text } }) => {
+    const parsed = parseV519(text);
+    renderResult(parsed, getTips(parsed));
+     });
+  });
+
+  // прибираємо cropper
+  cropper.destroy();
+  img.remove();
+  cropBtn.style.display = 'none';
+});
+
+
 /* ========= Main flow ========= */
 fileInput.addEventListener('change', async (e)=>{
   const f = e.target.files[0];
@@ -216,6 +286,8 @@ fileInput.addEventListener('change', async (e)=>{
     statusText.textContent = 'Помилка розпізнавання. Спробуй інше фото.';
   }
 });
+
+
 
 /* Demo */
 useDemoBtn.addEventListener('click', async ()=>{
@@ -246,6 +318,10 @@ useDemoBtn.addEventListener('click', async ()=>{
   await renderResult(parsed, tips);
   await refreshCharts();
 });
+
+
+
+
 
 /* ========= OCR + parse (V519) ========= */
 async function ocrAndParse(file){
