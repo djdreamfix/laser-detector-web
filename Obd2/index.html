@@ -631,35 +631,44 @@ async function refreshCharts(){
 function renderKV(obj) {
   kvEl.innerHTML = '';
 
-  for (const [k, v] of Object.entries(obj)) {
-    // Пропускаємо службове поле з сирим OCR
-    if (k === 'OCRText') continue;
+  const add = (k, v) => {
+    const row = document.createElement('div');
 
     if (v && typeof v === 'object' && !Array.isArray(v)) {
-      // вкладений об’єкт (Mode6 тощо)
+      // вкладений об’єкт (наприклад, Mode6)
       const sub = Object.entries(v)
         .map(([kk, vv]) => `${kk}: ${vv}`)
         .join(', ');
-      kvEl.innerHTML += `<div><b>${k}:</b> ${sub}</div>`;
+      row.innerHTML = `<b>${k}:</b> <span class="badge">${escapeHtml(sub)}</span>`;
     } else if (Array.isArray(v)) {
       // масив (IMReadiness тощо)
+      let content;
       if (v.length && typeof v[0] === 'object') {
-        // масив об’єктів
-        const items = v.map(item =>
+        content = v.map(item =>
           Object.entries(item).map(([kk,vv]) => `${kk}: ${vv}`).join(', ')
         ).join(' | ');
-        kvEl.innerHTML += `<div><b>${k}:</b> ${items}</div>`;
       } else {
-        // простий масив
-        kvEl.innerHTML += `<div><b>${k}:</b> ${v.join(', ')}</div>`;
+        content = v.join(', ');
       }
+      row.innerHTML = `<b>${k}:</b> <span class="badge">${escapeHtml(content)}</span>`;
     } else {
       // просте значення
-      kvEl.innerHTML += `<div><b>${k}:</b> ${v}</div>`;
+      row.innerHTML = `<b>${k}:</b> <span class="badge">${escapeHtml(String(v))}</span>`;
     }
+
+    kvEl.appendChild(row);
+  };
+
+  if (!obj || !Object.keys(obj).length) {
+    add('Статус','Немає розпізнаних полів');
+    return;
   }
 
-  // Додаємо сирий OCR‑текст у <details>
+  Object.entries(obj).forEach(([k,v]) => {
+    if (k !== 'OCRText') add(k, v);
+  });
+
+  // Сирий OCR‑текст окремо
   if (obj.OCRText) {
     const details = document.createElement('details');
     details.className = 'debug';
@@ -672,6 +681,8 @@ function renderKV(obj) {
     kvEl.appendChild(details);
   }
 }
+
+
 
 function renderAdvice(arr){
   const adviceEl = document.getElementById('advice');
@@ -800,20 +811,7 @@ function renderResult(parsed, tips){
   }  
 }
 
-function renderKV(obj){
-  kvEl.innerHTML = '';
-  const add = (k,v) => {
-    const kEl = document.createElement('div'); kEl.textContent = k;
-    const vEl = document.createElement('div');
-    vEl.innerHTML = `<span class="badge">${escapeHtml(String(v))}</span>`;
-    kvEl.appendChild(kEl); kvEl.appendChild(vEl);
-  };
-  if (!obj || !Object.keys(obj).length) {
-    add('Статус','Немає розпізнаних полів');
-    return;
-  }
-  Object.entries(obj).forEach(([k,v]) => add(k, Array.isArray(v) ? JSON.stringify(v) : v));
-}
+
 
 function renderAdvice(arr){
   adviceEl.innerHTML = '';
