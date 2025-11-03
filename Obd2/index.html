@@ -628,30 +628,51 @@ async function refreshCharts(){
 }
 
 /* ========= Render ========= */
-function renderKV(obj){
-  const kvEl = document.getElementById('kv');
-  const quickSummary = document.getElementById('quickSummary');
+function renderKV(obj) {
   kvEl.innerHTML = '';
-  quickSummary.innerHTML = '';
-  const add = (k,v) => {
-    const kEl = document.createElement('div'); kEl.textContent = k;
-    const vEl = document.createElement('div'); vEl.innerHTML = `<span class="badge">${escapeHtml(String(v))}</span>`;
-    kvEl.appendChild(kEl); kvEl.appendChild(vEl);
-  };
-  const addPill = (text) => {
-    const pill = document.createElement('div'); pill.className='pill'; pill.textContent = text;
-    quickSummary.appendChild(pill);
-  };
-  if (Array.isArray(obj.КодиПомилок) && obj.КодиПомилок.length) addPill(`DTC: ${obj.КодиПомилок.join(', ')}`);
-  if (typeof obj.Обороти === 'number') addPill(`RPM: ${obj.Обороти}`);
-  if (typeof obj.ТемператураОЖ === 'number') addPill(`ECT: ${obj.ТемператураОЖ}°C`);
-  if (typeof obj.ТискMAP_kPa === 'number') addPill(`MAP: ${obj.ТискMAP_kPa} kPa`);
-  if (typeof obj.МасоваВитратаПовітря_gs === 'number') addPill(`MAF: ${obj.МасоваВитратаПовітря_gs} g/s`);
-  if (typeof obj.ПоложенняДроселяВідсоток === 'number') addPill(`TPS: ${obj.ПоложенняДроселяВідсоток}%`);
 
-  if (!obj || !Object.keys(obj).length) { add('Статус','Немає розпізнаних полів'); return; }
-  Object.entries(obj).forEach(([k,v]) => add(k, Array.isArray(v) ? JSON.stringify(v) : v));
+  for (const [k, v] of Object.entries(obj)) {
+    // Пропускаємо службове поле з сирим OCR
+    if (k === 'OCRText') continue;
+
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      // вкладений об’єкт (Mode6 тощо)
+      const sub = Object.entries(v)
+        .map(([kk, vv]) => `${kk}: ${vv}`)
+        .join(', ');
+      kvEl.innerHTML += `<div><b>${k}:</b> ${sub}</div>`;
+    } else if (Array.isArray(v)) {
+      // масив (IMReadiness тощо)
+      if (v.length && typeof v[0] === 'object') {
+        // масив об’єктів
+        const items = v.map(item =>
+          Object.entries(item).map(([kk,vv]) => `${kk}: ${vv}`).join(', ')
+        ).join(' | ');
+        kvEl.innerHTML += `<div><b>${k}:</b> ${items}</div>`;
+      } else {
+        // простий масив
+        kvEl.innerHTML += `<div><b>${k}:</b> ${v.join(', ')}</div>`;
+      }
+    } else {
+      // просте значення
+      kvEl.innerHTML += `<div><b>${k}:</b> ${v}</div>`;
+    }
+  }
+
+  // Додаємо сирий OCR‑текст у <details>
+  if (obj.OCRText) {
+    const details = document.createElement('details');
+    details.className = 'debug';
+    const sum = document.createElement('summary');
+    sum.textContent = 'Показати сирий OCR‑текст';
+    const pre = document.createElement('pre');
+    pre.textContent = obj.OCRText;
+    details.appendChild(sum);
+    details.appendChild(pre);
+    kvEl.appendChild(details);
+  }
 }
+
 function renderAdvice(arr){
   const adviceEl = document.getElementById('advice');
   const statusText = document.getElementById('statusText');
