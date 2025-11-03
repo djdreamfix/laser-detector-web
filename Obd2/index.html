@@ -349,8 +349,8 @@ function startCropperFromUrl(url){
   document.body.appendChild(tempImgEl);
 
   tempImgEl.onload = () => {
-    cropper = new Cropper(tempImgEl, {
-      aspectRatio: 1,
+ const cropper = new Cropper(tempImgEl, {
+      aspectRatio: NaN,
       viewMode: 1,
       autoCropArea: 0.9,
       movable: true,
