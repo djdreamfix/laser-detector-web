@@ -76,6 +76,24 @@
   pointer-events: none;
   z-index: 10;
 }
+#cropContainer {
+  position: relative;
+  max-height: 80vh;
+  overflow: auto;
+  padding: 12px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+#cropContainer canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
 
 #previewCanvas {
   position: absolute;
@@ -402,43 +420,50 @@ function startCropperFromUrl(url) {
     tempImgEl.remove();
     tempImgEl = null;
   }
-  // Створення нового зображення
-tempImgEl = document.createElement('img');
-tempImgEl.src = url;
-tempImgEl.className = 'crop-target';
 
-  tempImgEl.style.maxWidth = '90vw';
+  const container = document.getElementById('cropContainer');
+  container.innerHTML = '';
+  container.classList.remove('hidden');
+  container.style.position = 'relative'; // для canvas накладання
+
+  // Створення нового зображення
+  tempImgEl = document.createElement('img');
+  tempImgEl.src = url;
+  tempImgEl.className = 'crop-target';
+  tempImgEl.style.maxWidth = '100%';
   tempImgEl.style.maxHeight = '70vh';
   tempImgEl.style.display = 'block';
-  tempImgEl.style.touchAction = 'none'; // Важливо для торч-подій
-  const container = document.getElementById('cropContainer');
-container.innerHTML = ''; // очищає попереднє
-container.classList.remove('hidden');
-container.appendChild(tempImgEl);
-previewCanvas.width = tempImgEl.naturalWidth;
-previewCanvas.height = tempImgEl.naturalHeight;
-container.appendChild(previewCanvas);
+  tempImgEl.style.margin = '0 auto';
+  tempImgEl.style.borderRadius = '12px';
+  tempImgEl.style.touchAction = 'none';
 
-const wrapper = document.createElement('div');
-wrapper.className = 'crop-container';
-wrapper.appendChild(tempImgEl);
-document.body.appendChild(wrapper);
-  
-   // Показуємо кнопку "Обрізати"
-  btnCrop.classList.remove('hidden');
-  statusText.textContent = 'Виділіть область для обрізки (перетягніть пальцем)';
-  // Додаємо обробники подій для десктопів і мобільних пристроїв
+  container.appendChild(tempImgEl);
+
+  // Після завантаження зображення — налаштування canvas
   tempImgEl.onload = () => {
-    // Для миші
+    previewCanvas.width = tempImgEl.naturalWidth;
+    previewCanvas.height = tempImgEl.naturalHeight;
+    previewCanvas.style.position = 'absolute';
+    previewCanvas.style.top = '0';
+    previewCanvas.style.left = '0';
+    previewCanvas.style.pointerEvents = 'none';
+    previewCanvas.style.zIndex = '10';
+    container.appendChild(previewCanvas);
+
+    // Показуємо кнопку "Обрізати"
+    btnCrop.classList.remove('hidden');
+    statusText.textContent = 'Виділіть область для обрізки (перетягніть пальцем)';
+
+    // Додаємо обробники подій
     tempImgEl.onmousedown = handleStart;
     tempImgEl.onmousemove = handleMove;
     tempImgEl.onmouseup = handleEnd;
-    
-    // Для торч-пристроїв
     tempImgEl.ontouchstart = handleStart;
     tempImgEl.ontouchmove = handleMove;
     tempImgEl.ontouchend = handleEnd;
   };
+}
+
   function handleStart(e) {
     isCropping = true;
     const pos = getPosition(e);
