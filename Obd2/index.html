@@ -43,6 +43,24 @@
        padding: 20px; / Більше місця /
      }
    }
+  img.crop-target {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  border-radius: 12px;
+}
+.crop-container {
+  max-height: 80vh;
+  overflow: auto;
+  padding: 8px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+
 
 </style>
 
@@ -78,9 +96,9 @@
 
     <div class="small muted" style="margin-top:8px">Порада: фото фронтально, без відблисків; підвищуй контраст при потребі.</div>
 
-    <div style="margin-top:12px">
+    <div class="crop-container" style="margin-top:12px">
       <video id="video" autoplay playsinline class="hidden"></video>
-      <canvas id="previewCanvas" class="hidden"></canvas>
+      <canvas id="previewCanvas" class="hidden "></canvas>
     </div>
   </div>
 
@@ -123,6 +141,10 @@
 
 
 <script>
+const wrapper = document.createElement('div');
+wrapper.className = 'crop-container';
+wrapper.appendChild(tempImgEl);
+document.body.appendChild(wrapper);
 /* ========= IndexedDB (як у твоєму файлі) ========= */
 let db;
 function openDB() {
@@ -358,8 +380,10 @@ function startCropperFromUrl(url) {
     tempImgEl = null;
   }
   // Створення нового зображення
-  tempImgEl = document.createElement('img');
-  tempImgEl.src = url;
+tempImgEl = document.createElement('img');
+tempImgEl.src = url;
+tempImgEl.className = 'crop-target';
+document.body.appendChild(tempImgEl);;
   tempImgEl.style.maxWidth = '90vw';
   tempImgEl.style.maxHeight = '70vh';
   tempImgEl.style.display = 'block';
