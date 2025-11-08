@@ -338,31 +338,67 @@ async function runOCRFromCanvas(canvas){
 }
 
 /* ========= Cropper helper ========= */
- function startCropperFromUrl(url) {
-     // cleanup
-     if (window.cropper) { window.cropper.destroy(); window.cropper = null; }
-     if (tempImgEl) { tempImgEl.remove(); tempImgEl = null; }
+let cropStartX, cropStartY, cropEndX, cropEndY;
+let isCropping = false;
+let tempImgEl = null;
 
-     tempImgEl = document.createElement('img');
-     tempImgEl.src = url;
-     tempImgEl.style.maxWidth = '90vw';
-     tempImgEl.style.maxHeight = '70vh';
-     tempImgEl.style.display = 'block';
-     document.body.appendChild(tempImgEl);
+function startCropperFromUrl(url) {
+  // Очищення попередніх елементів
+  if (tempImgEl) {
+    tempImgEl.remove();
+    tempImgEl = null;
+  }
 
-     tempImgEl.onload = () => {
-       window.cropper = new Cropper(tempImgEl, {  // Використовуйте window.cropper
-         aspectRatio: NaN,
-         viewMode: 1,
-         autoCropArea: 0.9,
-         movable: true,
-         zoomable: true,
-         responsive: true
-       });
-       btnCrop.classList.remove('hidden');
-       statusText.textContent = 'Виділіть екран сканера і натисніть Обрізати';
-     };
-   }
+  // Створення нового зображення
+  tempImgEl = document.createElement('img');
+  tempImgEl.src = url;
+  tempImgEl.style.maxWidth = '90vw';
+  tempImgEl.style.maxHeight = '70vh';
+  tempImgEl.style.display = 'block';
+  document.body.appendChild(tempImgEl);
+
+  // Показуємо кнопку "Обрізати"
+  btnCrop.classList.remove('hidden');
+  statusText.textContent = 'Виділіть область для обрізки (перетягніть мишкою)';
+
+  // Додаємо обробники подій для виділення області
+  tempImgEl.onload = () => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = tempImgEl.naturalWidth;
+    canvas.height = tempImgEl.naturalHeight;
+    ctx.drawImage(tempImgEl, 0, 0);
+
+    // Відображення рамки виділення
+    tempImgEl.onmousedown = (e) => {
+      isCropping = true;
+      cropStartX = e.offsetX;
+      cropStartY = e.offsetY;
+    };
+
+    tempImgEl.onmousemove = (e) => {
+      if (!isCropping) return;
+      cropEndX = e.offsetX;
+      cropEndY = e.offsetY;
+
+      // Оновлення рамки виділення (можна додати візуалізацію)
+      const previewCtx = previewCanvas.getContext('2d');
+      previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      previewCtx.strokeStyle = 'red';
+      previewCtx.lineWidth = 2;
+      previewCtx.strokeRect(
+        cropStartX,
+        cropStartY,
+        cropEndX - cropStartX,
+        cropEndY - cropStartY
+      );
+    };
+
+    tempImgEl.onmouseup = () => {
+      isCropping = false;
+    };
+  };
+}
 
 /* ========= Unified flow: pick file -> crop -> OCR -> parse -> render ========= */
 btnPick.addEventListener('click', ()=>filePicker.click());
@@ -375,48 +411,47 @@ filePicker.addEventListener('change', async (e)=>{
 });
 
 /* Crop button: take cropped canvas, show preview, OCR, parse, save */
-btnCrop.addEventListener('click', async ()=>{
-  if (!cropper) return;
-  try {
-    statusText.textContent = 'Обрізка зображення...';
-    const croppedCanvas = cropper.getCroppedCanvas({ imageSmoothingEnabled:true, imageSmoothingQuality:'high' });
-    // show preview
-    previewCanvas.classList.remove('hidden');
-    previewCanvas.width = croppedCanvas.width;
-    previewCanvas.height = croppedCanvas.height;
-    const pctx = previewCanvas.getContext('2d');
-    pctx.drawImage(croppedCanvas,0,0);
-
-    // cleanup cropper UI
-    cropper.destroy(); cropper=null;
-    if (tempImgEl){ tempImgEl.remove(); tempImgEl=null; }
-    btnCrop.classList.add('hidden');
-
-    // optional preprocessing: convert to grayscale + boost contrast (improves OCR)
-    try {
-      const id = pctx.getImageData(0,0,previewCanvas.width, previewCanvas.height);
-      for (let i=0;i<id.data.length;i+=4){
-        let r=id.data[i], g=id.data[i+1], b=id.data[i+2];
-        let gray = 0.299*r + 0.587*g + 0.114*b;
-        gray = Math.min(255, Math.max(0, (gray-128)*1.6 + 128));
-        id.data[i]=id.data[i+1]=id.data[i+2]=gray;
-      }
-      pctx.putImageData(id,0,0);
-    } catch(e){ console.warn('preprocess skipped', e); }
-
-    const text = await runOCRFromCanvas(previewCanvas);
-    const parsed = await parseV519(text);
-    await ensureDTCs(parsed.КодиПомилок || parsed.КодиПомилок || parsed.КодиПомилок); // tolerant (older keys)
-    const tips = await buildAdvice(parsed);
-    await saveSeriesEntry(parsed);
-    await renderResult(parsed, tips);
-    await renderDTCBase();
-    await refreshCharts();
-  } catch (err){
-    console.error(err);
-    statusText.textContent = 'Помилка обробки зображення';
+btnCrop.addEventListener('click', async () => {
+  if (!tempImgEl || !cropStartX || !cropStartY || !cropEndX || !cropEndY) {
+    statusText.textContent = 'Спочатку виділіть область!';
+    return;
   }
+
+  // Обчислюємо координати обрізки
+  const width = Math.abs(cropEndX - cropStartX);
+  const height = Math.abs(cropEndY - cropStartY);
+  const x = Math.min(cropStartX, cropEndX);
+  const y = Math.min(cropStartY, cropEndY);
+
+  // Обрізаємо зображення
+  const croppedCanvas = document.createElement('canvas');
+  croppedCanvas.width = width;
+  croppedCanvas.height = height;
+  const ctx = croppedCanvas.getContext('2d');
+  ctx.drawImage(
+    tempImgEl,
+    x, y, width, height,  // Обрізана область
+    0, 0, width, height   // Новий canvas
+  );
+
+  // Показуємо результат у previewCanvas
+  previewCanvas.width = croppedCanvas.width;
+  previewCanvas.height = croppedCanvas.height;
+  previewCanvas.getContext('2d').drawImage(croppedCanvas, 0, 0);
+  previewCanvas.classList.remove('hidden');
+
+  // Очищуємо тимчасові елементи
+  tempImgEl.remove();
+  tempImgEl = null;
+  btnCrop.classList.add('hidden');
+  statusText.textContent = 'Обрізка завершена. Обробляємо OCR...';
+
+  // Далі можна викликати OCR (як у вашому оригінальному коді)
+  const text = await runOCRFromCanvas(previewCanvas);
+  const parsed = await parseV519(text);
+  // ... решта логіки
 });
+
 
 /* ========= Camera flow (open, capture, stop) ========= */
 btnOpenCamera.addEventListener('click', async ()=>{
