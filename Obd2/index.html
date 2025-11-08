@@ -281,18 +281,6 @@
   T = T.replace(/\s+/g, ' ').trim();
 
   out.OCRText = T;
-// Freeze frame DTC (допускаємо варіанти DTCFRZE / DTCFRZF)
-const fr = T.match(/\bDTCF?RZ?E?F?\b[:\s\-]*([PBCU][0-9OО]{4})/i);
-if (fr) out.FreezeFrameDTC = fr[1].toUpperCase().replace(/[ОO]/g,'0');
-
-// Нормалізація варіантів FUELSYS
-T = T.replace(/FUELsYst/gi,'FUELSYS');
-const fs = T.match(/\bFUELSYS\b[:\s\-]*([A-Z0-9\-]+)?/i);
-if (fs) out.ПаливнаСистема = fs[1] ? fs[1].toUpperCase() : 'UNKNOWN';
-
-// SHRTFT1 може бути без числа — повертаємо null якщо поле є, але число відсутнє
-const sh = T.match(/\b(SHRTFT1|STFT1)\b[^\d\-]*(-?\d{1,4}(?:\.\d+)?)?/i);
-out.SHRTFT1 = sh ? (sh[2] ? Number(sh[2]) : null) : undefined;
 
   // Функція-помічник для числових витягів
   const asNum = s => {
