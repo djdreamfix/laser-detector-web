@@ -1,926 +1,777 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>OBD Analyzer</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>OBD Analyzer</title>
+  <style>
+    :root{
+      --bg:#f9f9fb; --card:#ffffff; --text:#111; --muted:#6b7280; --border:#e5e7eb;
+      --accent:#007aff; --badge:#eef2ff;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans","Helvetica Neue",Arial,sans-serif;}
+    header{position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--border);
+      padding:14px 16px;text-align:center;font-weight:600;font-size:18px}
+    main{padding:16px;max-width:760px;margin:0 auto}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.04);margin-bottom:16px}
+    .title{font-weight:600;font-size:16px;margin-bottom:8px}
+    .subtitle{font-size:13px;color:var(--muted);margin-top:4px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{padding:12px 14px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-weight:700;cursor:pointer}
+    .btn.secondary{background:#fff;color:var(--accent);border:1px solid var(--accent)}
+    .small{font-size:12px;color:var(--muted)}
+    .kv{display:grid;grid-template-columns:180px 1fr;gap:8px 12px}
+    .badge{display:inline-block;padding:4px 8px;border-radius:8px;background:var(--badge)}
+    .divider{height:1px;background:var(--border);margin:12px 0}
+    .pill{display:inline-block;padding:4px 8px;border-radius:20px;background:#eef2ff;margin:2px 6px 0 0}
+    .hidden{display:none !important}
+    pre{white-space:pre-wrap;word-break:break-word}
 
-<style>
-  :root{
-    --bg:#f9f9fb; --card:#ffffff; --text:#111; --muted:#6b7280; --border:#e5e7eb;
-    --accent:#007aff; --accent-d:#0051a8; --badge:#eef2ff;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans","Helvetica Neue",Arial,sans-serif;}
-  header{position:sticky;top:0;z-index:10;background:var(--card);border-bottom:1px solid var(--border);
-    padding:14px 16px;text-align:center;font-weight:600;font-size:18px}
-  main{padding:16px;max-width:760px;margin:0 auto}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;
-    box-shadow:0 2px 10px rgba(0,0,0,0.04);margin-bottom:16px}
-  .title{font-weight:600;font-size:16px;margin-bottom:8px}
-  .subtitle{font-size:13px;color:var(--muted);margin-top:4px}
-  .controls{display:flex;gap:8px;flex-wrap:wrap}
-  .btn{padding:12px 14px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-weight:700;cursor:pointer}
-  .btn.secondary{background:#fff;color:var(--accent);border:1px solid var(--accent)}
-  .small{font-size:12px;color:var(--muted)}
-  .kv{display:grid;grid-template-columns:180px 1fr;gap:8px 12px}
-  .badge{display:inline-block;padding:4px 8px;border-radius:8px;background:var(--badge)}
-  .divider{height:1px;background:var(--border);margin:12px 0}
-  canvas#previewCanvas{width:100%;border-radius:12px;background:#fff;border:1px solid var(--border);display:block}
-  video{max-width:100%;border-radius:12px;background:#000;display:block}
-  .pill{display:inline-block;padding:4px 8px;border-radius:20px;background:#eef2ff;margin:2px 6px 0 0}
-  details.debug{margin-top:10px;border:1px solid #ddd;border-radius:10px;background:#fff;padding:8px}
-  details.debug summary{cursor:pointer;color:var(--accent);font-weight:600}
-  details.debug pre{margin-top:8px;padding:8px;background:#f7f7f7;border-radius:8px;font-family:Menlo,SFMono-Regular,monospace;white-space:pre-wrap;word-break:break-word}
-  .hidden{display:none !important}
-  @media (max-width: 768px) {
-     .btn {
-       padding: 16px 20px; / Більші кнопки /
-       font-size: 18px;
-     }
-     .card {
-       padding: 20px; / Більше місця /
-     }
-   }
-  img.crop-target {
-  max-width: 100%;
-  max-height: 70vh;
-  object-fit: contain;
-  display: block;
-  margin: 0 auto;
-  border-radius: 12px;
-}
-.crop-container {
-  position: relative;
-  max-height: 80vh;
-  overflow: auto;
-  padding: 12px;
-  background: #fff;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  margin-bottom: 16px;
-}
-.crop-container img {
-  max-width: 100%;
-  max-height: 70vh;
-  object-fit: contain;
-  border-radius: 12px;
-  display: block;
-  margin: 0 auto;
-}
-.crop-container canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  z-index: 10;
-}
-#cropContainer {
-  position: relative;
-  max-height: 80vh;
-  overflow: auto;
-  padding: 12px;
-  background: #fff;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  margin-bottom: 16px;
-}
-#cropContainer canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  z-index: 10;
-}
+    /* crop container */
+    #cropContainer {
+      position: relative;
+      max-height: 80vh;
+      overflow: auto;
+      padding: 12px;
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    #cropContainer img {
+      max-width: 100%;
+      max-height: 70vh;
+      object-fit: contain;
+      border-radius: 12px;
+      display: block;
+      margin: 0 auto;
+      user-select: none;
+      -webkit-user-drag: none;
+      touch-action: none;
+    }
+    #cropContainer canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
 
+    @media (max-width:768px){
+      .btn{padding:12px 12px}
+    }
+  </style>
 
-#previewCanvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  z-index: 10;
-}
-
-
-
-</style>
-
-<!-- Cropper + Tesseract 
-<link href="https://unpkg.com/cropperjs/dist/cropper.min.css" rel="stylesheet" />
-<script src="https://unpkg.com/cropperjs@2.1.0/dist/cropper.min.js" defer></script>
-<script src="https://unpkg.com/cropperjs@1.5.12/dist/cropper.min.js"></script>-->
-
-<script src="https://unpkg.com/tesseract.js@v5.0.3/dist/tesseract.min.js"></script>
-
-<!-- dev tools -->
-<script src="https://unpkg.com/eruda"></script><script>eruda.init();</script>
-
+  <!-- Tesseract -->
+  <script src="https://unpkg.com/tesseract.js@v5.0.3/dist/tesseract.min.js"></script>
 </head>
 <body>
-<header>OBD Analyzer</header>
-<main>
+  <header>OBD Analyzer</header>
+  <main>
+    <div class="card">
+      <div class="title">Додай фото екрану сканера</div>
+      <div class="subtitle">OCR → парсинг (V519) → поради → локальна база DTC</div>
 
-  <!-- Upload / Camera -->
-  <div class="card">
-    <div class="title">Додай фото екрану сканера</div>
-    <div class="subtitle">OCR → парсинг (V519) → поради → оновлення бази DTC</div>
+      <div class="controls" style="margin-top:10px">
+        <input id="filePicker" type="file" accept="image/*" style="display:none" />
+        <button id="btnPick" class="btn">📁 Додати фото</button>
+        <button id="btnOpenCamera" class="btn secondary">Використати камеру</button>
+        <button id="btnCapture" class="btn secondary hidden">Захопити кадр</button>
+        <button id="btnCrop" class="btn secondary hidden">Обрізати</button>
+        <button id="btnStopCamera" class="btn secondary hidden">Зупинити камеру</button>
+        <button id="useDemo" class="btn secondary">Спробувати демо</button>
+      </div>
 
-    <div style="margin-top:10px" class="controls">
-      <input id="filePicker" type="file" accept="image/*" style="display:none" />
-      <button id="btnPick" class="btn">📷 Додати фото</button>
-      <button id="btnOpenCamera" class="btn secondary">Використати камеру</button>
-      <button id="btnCapture" class="btn secondary hidden">Захопити кадр</button>
-      <button id="btnCrop" class="btn secondary hidden">Обрізати</button>
-      <button id="btnStopCamera" class="btn secondary hidden">Зупинити камеру</button>
-      <button id="useDemo" class="btn secondary">Спробувати демо</button>
+      <div class="small" style="margin-top:8px">Порада: фото фронтально, без відблисків; при потребі підвищуй контраст.</div>
+
+      <div id="cropContainer" class="hidden" style="margin-top:12px"></div>
+      <canvas id="previewCanvas" class="hidden"></canvas>
+      <video id="video" autoplay playsinline class="hidden" style="margin-top:12px; width:100%; border-radius:12px;"></video>
     </div>
 
-    <div class="small muted" style="margin-top:8px">Порада: фото фронтально, без відблисків; підвищуй контраст при потребі.</div>
-<div id="cropContainer" class="crop-container hidden"></div>
-
-    <div style="margin-top:12px">
-      <video id="video" autoplay playsinline class="hidden"></video>
-      <canvas id="previewCanvas" class="hidden "></canvas>
+    <div class="card" id="resultCard">
+      <div class="title">Результат</div>
+      <div class="subtitle" id="statusText">Готово</div>
+      <div id="quickSummary" style="margin-top:8px"></div>
+      <div class="divider"></div>
+      <div class="kv" id="kv"></div>
+      <div class="divider"></div>
+      <div class="title">Поради</div>
+      <ul id="advice" style="list-style:none;padding:0;margin:8px 0"></ul>
     </div>
-  </div>
 
-  <!-- Result -->
-  <div class="card" id="resultCard">
-    <div class="title">Результат</div>
-    <div class="subtitle" id="statusText">Готово</div>
-    <div id="quickSummary" style="margin-top:8px"></div>
-    <div class="divider"></div>
-    <div class="kv" id="kv"></div>
-    <div class="divider"></div>
-    <div class="title">Поради</div>
-    <ul id="advice" style="list-style:none;padding:0;margin:8px 0"></ul>
-  </div>
-
-  <!-- Charts -->
-  <div class="card">
-    <div class="title">Графіки (останні дані)</div>
-    <div class="subtitle">RPM, ECT, MAP, MAF, TPS</div>
-    <canvas id="chartRPM"></canvas>
-    <canvas id="chartECT" style="margin-top:10px"></canvas>
-    <canvas id="chartMAP" style="margin-top:10px"></canvas>
-    <canvas id="chartMAF" style="margin-top:10px"></canvas>
-    <canvas id="chartTPS" style="margin-top:10px"></canvas>
-  </div>
-
-  <!-- DTC Base -->
-  <div class="card">
-    <div class="title">Локальна база DTC</div>
-    <div class="subtitle">Автоматично поповнюється при знаходженні нових кодів</div>
-    <div class="kv" id="dtcBaseView"></div>
-    <div style="margin-top:8px" class="controls">
-      <button id="downloadDB" class="btn secondary">Експорт бази (JSON)</button>
-      <input id="importFile" type="file" accept="application/json" class="hidden" />
-      <button id="importBtn" class="btn secondary">Імпорт бази</button>
+    <div class="card">
+      <div class="title">Графіки (останні дані)</div>
+      <div class="subtitle">RPM, ECT, MAP, MAF, TPS</div>
+      <canvas id="chartRPM"></canvas>
+      <canvas id="chartECT" style="margin-top:10px"></canvas>
+      <canvas id="chartMAP" style="margin-top:10px"></canvas>
+      <canvas id="chartMAF" style="margin-top:10px"></canvas>
+      <canvas id="chartTPS" style="margin-top:10px"></canvas>
     </div>
-  </div>
 
-</main>
+    <div class="card">
+      <div class="title">Локальна база DTC</div>
+      <div class="subtitle">Автоматично поповнюється при знаходженні нових кодів</div>
+      <div class="kv" id="dtcBaseView"></div>
+      <div class="controls" style="margin-top:8px">
+        <button id="downloadDB" class="btn secondary">Експорт бази (JSON)</button>
+        <input id="importFile" type="file" accept="application/json" class="hidden" />
+        <button id="importBtn" class="btn secondary">Імпорт бази</button>
+      </div>
+    </div>
+  </main>
 
+  <script>
+  /* ========= Globals ========= */
+  let db;
+  let cropStartX = null, cropStartY = null, cropEndX = null, cropEndY = null;
+  let tempImgEl = null;
+  let cameraStream = null;
 
-<script>
+  const filePicker = document.getElementById('filePicker');
+  const btnPick = document.getElementById('btnPick');
+  const btnOpenCamera = document.getElementById('btnOpenCamera');
+  const btnCapture = document.getElementById('btnCapture');
+  const btnStopCamera = document.getElementById('btnStopCamera');
+  const btnCrop = document.getElementById('btnCrop');
+  const btnUseDemo = document.getElementById('useDemo');
+  const previewCanvas = document.getElementById('previewCanvas');
+  const videoEl = document.getElementById('video');
 
-/* ========= IndexedDB (як у твоєму файлі) ========= */
-let db;
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open('obd_app_db', 3);
-    req.onupgradeneeded = (e) => {
-      db = e.target.result;
-      if (!db.objectStoreNames.contains('dtc')) db.createObjectStore('dtc', { keyPath: 'code' });
-      if (!db.objectStoreNames.contains('series')) db.createObjectStore('series', { keyPath: 'id' });
-      if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
-    };
-    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
-    req.onerror = (e) => reject(e);
-  });
-}
-async function openDBIfNeeded(){ if(!db) await openDB(); }
-async function dbPut(store, obj){
-  await openDBIfNeeded();
-  return new Promise((resolve,reject)=>{
-    const tx = db.transaction(store, 'readwrite');
-    tx.objectStore(store).put(obj);
-    tx.oncomplete=()=>resolve(true);
-    tx.onerror=(e)=>reject(e);
-  });
-}
-async function dbGet(store, key){
-  await openDBIfNeeded();
-  return new Promise((resolve,reject)=>{
-    const tx = db.transaction(store, 'readonly');
-    const req = tx.objectStore(store).get(key);
-    req.onsuccess=()=>resolve(req.result);
-    req.onerror=(e)=>reject(e);
-  });
-}
-async function dbGetAll(store){
-  await openDBIfNeeded();
-  return new Promise((resolve,reject)=>{
-    const tx = db.transaction(store, 'readonly');
-    const req = tx.objectStore(store).getAll();
-    req.onsuccess=()=>resolve(req.result||[]);
-    req.onerror=(e)=>reject(e);
-  });
-}
-async function dbDeleteAll(store){
-  await openDBIfNeeded();
-  return new Promise((resolve,reject)=>{
-    const tx=db.transaction(store,'readwrite');
-    const req=tx.objectStore(store).clear();
-    req.onsuccess=()=>resolve(true);
-    req.onerror=(e)=>reject(e);
-  });
-}
+  const statusText = document.getElementById('statusText');
+  const kvEl = document.getElementById('kv');
+  const adviceEl = document.getElementById('advice');
+  const dtcBaseView = document.getElementById('dtcBaseView');
+  const downloadDB = document.getElementById('downloadDB');
+  const importFile = document.getElementById('importFile');
+  const importBtn = document.getElementById('importBtn');
+  const quickSummary = document.getElementById('quickSummary');
 
-/* ========= Seed families (як був) ========= */
-async function seedFamilies(){
-  const families = [
-    { code:'P03xx', name:'Пропуски запалювання', desc:'Виявлені пропуски запалювання.', actions:[
-      "Перевірити свічки, котушки, дроти.",
-      "Перевірити форсунки та компресію.",
-      "Перевірити підсмок повітря."
-    ]},
-    { code:'P0171', name:'Збіднена суміш (Bank 1)', desc:'PCM виявив збіднену суміш.', actions:[
-      "Перевірити підсмок повітря, вакуумні шланги.",
-      "Перевірити MAF/MAP.",
-      "Перевірити тиск палива."
-    ]},
-    { code:'P0172', name:'Збагачена суміш (Bank 1)', desc:'PCM виявив збагачену суміш.', actions:[
-      "Перевірити форсунки (підтікання).",
-      "Перевірити регулятор тиску.",
-      "Оцінити роботу O2/AFR."
-    ]},
-    { code:'P0420', name:'Ефективність каталізатора низька (Bank 1)', desc:'Каталізатор неефективний.', actions:[
-      "Перевірити витоки вихлопу перед катом.",
-      "Оцінити датчики O2 (до/після кату).",
-      "Перевірити суміш."
-    ]},
-    { code:'P0103', name:'MAF — високий рівень сигналу', desc:'Високий сигнал з MAF (High input).', actions:[
-      "Оглянути проводку MAF (КЗ/обрив).",
-      "Очистити/замінити MAF.",
-      "Перевірити герметичність впуску."
-    ]}
-  ];
-  for (const f of families) await dbPut('dtc', f);
-}
-
-/* ========= UI refs ========= */
-const filePicker = document.getElementById('filePicker');
-const btnPick = document.getElementById('btnPick');
-const btnOpenCamera = document.getElementById('btnOpenCamera');
-const btnCapture = document.getElementById('btnCapture');
-const btnStopCamera = document.getElementById('btnStopCamera');
-const btnCrop = document.getElementById('btnCrop');
-const btnUseDemo = document.getElementById('useDemo');
-const previewCanvas = document.getElementById('previewCanvas');
-const videoEl = document.getElementById('video');
-
-const statusText = document.getElementById('statusText');
-const kvEl = document.getElementById('kv');
-const adviceEl = document.getElementById('advice');
-const dtcBaseView = document.getElementById('dtcBaseView');
-const downloadDB = document.getElementById('downloadDB');
-const importFile = document.getElementById('importFile');
-const importBtn = document.getElementById('importBtn');
-const quickSummary = document.getElementById('quickSummary');
-
-let cropper = null;
-let tempImgEl = null;
-let cameraStream = null;
-
-/* ======= Init DB & seed ======= */
-document.addEventListener('DOMContentLoaded', async ()=>{
-  await openDB();
-  const seeded = await dbGet('meta','seeded');
-  if(!seeded){ await seedFamilies(); await dbPut('meta',{key:'seeded', value:true}); }
-  await renderDTCBase();
-  await refreshCharts();
-});
-
-/* ========= Utilities ========= */
-function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function dedupe(arr){ const s=new Set(); const out=[]; for(const x of arr){ const k=String(x||'').trim(); if(!s.has(k)){ s.add(k); out.push(x); } } return out; }
-function avg(arr){ return arr.reduce((a,b)=>a+b,0)/arr.length; }
-
-/* ========= Parser & helpers (взято і адаптовано з твого коду) ========= */
-async function parseV519(text){
-  const out = {};
-  const T = String(text || '').replace(/\s+/g,' ').trim();
-  out.OCRText = T;
-
-  const dtc = [...T.matchAll(/\b([PBCU]\d{4})\b/gi)].map(m=>m[1].toUpperCase());
-  if (dtc.length) out.КодиПомилок = dtc;
-
-  const frz = T.match(/\bDTCFRZE?F?\b[:\s]*([PBCU]\d{4})/i);
-  if (frz) out.FreezeFrameDTC = frz[1].toUpperCase();
-
-  const rpm = T.match(/\bRPM\b[:\s]*(-?\d{2,5})/i);
-  if (rpm) out.Обороти = +rpm[1];
-
-  const ect = T.match(/\b(ECT|ETC|Coolant)\s*[:\s]*(-?\d{1,5})/i);
-  if (ect){ const val=+ect[2]; if(val>-40 && val<150) out.ТемператураОЖ = val; }
-
-  const iat = T.match(/\b(IAT|Intake Air Temp)\s*[:\s]*(-?\d{1,5})/i);
-  if (iat){ const val=+iat[2]; if(val>-40 && val<100) out.ТемператураВпуску = val; }
-
-  const eot = T.match(/\b(EOT|Engine Oil Temp)\s*[:\s]*(-?\d{1,5})/i);
-  if (eot){ const val=+eot[2]; if(val>-40 && val<180) out.ТемператураОливи = val; }
-
-  const load = T.match(/\bLOAD[_\s]?PCT`\(?%?\)`?[:\s]*(-?\d{1,3}(?:\.\d+)?)/i);
-  if (load) out.НавантаженняВідсоток = +load[1];
-
-  const tps = T.match(/\b(TPS|Throttle)\s*`\(?%?\)`?[:\s]*(-?\d{1,3}(?:\.\d+)?)/i);
-  if (tps) out.ПоложенняДроселяВідсоток = +tps[2];
-
-  const map = T.match(/\bMAP\b.*?[:\s]*(-?\d{1,3}(?:\.\d{1,3})?)\s?(kPa|inHg)?/i);
-  if (map) out.ТискMAP = +(map[1]);
-
-  const maf = T.match(/\bMAF\b.*?[:\s]*(-?\d{1,3}(?:\.\d{1,3})?)\s?g\/s/i);
-  if (maf) out.МасоваВитратаПовітря_gs = +maf[1];
-
-  const fs1 = T.match(/\bFUELSYS[1!]\b[:\s]*(CL|OL|NA|OK|-?\d{1,3})/i);
-  if (fs1) out.ПаливнаСистема1 = fs1[1].toUpperCase();
-  const fs2 = T.match(/\bFUELSYS[2?]\b[:\s]*(CL|OL|NA|OK|-?\d{1,3})/i);
-  if (fs2) out.ПаливнаСистема2 = fs2[1].toUpperCase();
-
-  const stft1 = T.match(/\b(SHRTFT1|STFT1)\s*`\(?%?\)`?[:\s]*(-?\d{1,3}(?:\.\d+)?)/i);
-  if (stft1) out.STFT1 = +stft1[2];
-  const stft2 = T.match(/\b(SHRTFT2|STFT2)\s*`\(?%?\)`?[:\s]*(-?\d{1,3}(?:\.\d+)?)/i);
-  if (stft2) out.STFT2 = +stft2[2];
-  const ltft1 = T.match(/\b(LONGFT1|LTFT1)\s*`\(?%?\)`?[:\s]*(-?\d{1,3}(?:\.\d+)?)/i);
-  if (ltft1) out.LTFT1 = +ltft1[2];
-  const ltft2 = T.match(/\b(LONGFT2|LTFT2)\s*`\(?%?\)`?[:\s]*(-?\d{1,3}(?:\.\d+)?)/i);
-  if (ltft2) out.LTFT2 = +ltft2[2];
-
-  const o2s = [...T.matchAll(/\bO2.*?(B\d).*?(S\d).*?[:\s]*([0-1](?:\.\d{1,3})?)V/gi)];
-  o2s.forEach(m => { out[`O2_${m[1]}${m[2]}_V`] = +m[3]; });
-
-  const afr = T.match(/\b(AFR|Lambda)\b[:\s]*(-?\d{1,2}\.\d{1,3})/i);
-  if (afr) out.AFR = +afr[2];
-
-  const volt = T.match(/\b(Battery|Voltage)\b[:\s]*([0-9]{1,2}\.?[0-9])\s?V\b/i);
-  if (volt) out.НапругаАКБ = +volt[2];
-
-  const spd = T.match(/\b(Speed|VSS)\b[:\s]*(-?\d{1,3})\s?(km\/h|mph)?/i);
-  if (spd){ out.Швидкість = +spd[2]; out.ОдиниціШвидкості = spd[3] || 'km/h'; }
-
-  const imPairs = [...T.matchAll(/\b(Misfire Monitor|Fuel System Mon|Catalyst Mon|Evap System Mon|O2 Sensor Mon|O2 Sensor Htr|EGR System)\b[:\s]*(OK|INC|NA|OFF|ON)\b/gi)];
-  if (imPairs.length) out.IMReadiness = imPairs.map(m=>({name:m[1], status:m[2].toUpperCase()}));
-
-  const testVal = T.match(/\bTest\s*value\b[:\s]*([-\d\.]+)/i);
-  const minLim  = T.match(/\bMin\s*Limit\b[:\s]*([-\d\.]+)/i);
-  const maxLim  = T.match(/\bMax\s*Limit\b[:\s]*([-\d\.]+)/i);
-  const status  = T.match(/\bStatus\b[:\s]*(Fail|Pass|OK)/i);
-  if (testVal || minLim || maxLim || status) {
-    out.Mode6 = {
-      testValue: testVal ? +testVal[1] : null,
-      min: minLim ? +minLim[1] : null,
-      max: maxLim ? +maxLim[1] : null,
-      status: status ? status[1].toUpperCase() : null
-    };
-  }
-
-  const mil = T.match(/\b(MIL|Check\s*Engine)\b.*\b(ON|OFF)\b/i);
-  if (mil) out.МІЛ = mil[2].toUpperCase();
-
-  return out;
-}
-
-/* ========= OCR wrapper ========= */
-async function runOCRFromCanvas(canvas){
-  try {
-    statusText.textContent = '🔎 Виконується OCR…';
-    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-    const { data } = await Tesseract.recognize(blob, 'eng+rus', {
-      logger: m => console.log('Tesseract', m)
-    });
-    statusText.textContent = '✅ OCR завершено';
-    return data?.text ?? '';
-  } catch (e){
-    console.error('OCR error', e);
-    statusText.textContent = '❌ Помилка OCR';
-    throw e;
-  }
-}
-
-/* ========= Cropper helper ========= */
-let cropStartX, cropStartY, cropEndX, cropEndY;
-let isCropping = false;
-//let tempImgEl = null;
-function startCropperFromUrl(url) {
-  // Очищення попередніх елементів
-  if (tempImgEl) {
-    tempImgEl.remove();
-    tempImgEl = null;
-  }
-
-  const container = document.getElementById('cropContainer');
-  container.innerHTML = '';
-  container.classList.remove('hidden');
-  container.style.position = 'relative'; // для canvas накладання
-
-  // Створення нового зображення
-  tempImgEl = document.createElement('img');
-  tempImgEl.src = url;
-  tempImgEl.className = 'crop-target';
-  tempImgEl.style.maxWidth = '100%';
-  tempImgEl.style.maxHeight = '70vh';
-  tempImgEl.style.display = 'block';
-  tempImgEl.style.margin = '0 auto';
-  tempImgEl.style.borderRadius = '12px';
-  tempImgEl.style.touchAction = 'none';
-
-  container.appendChild(tempImgEl);
-
-  // Після завантаження зображення — налаштування canvas
-  tempImgEl.onload = () => {
-    previewCanvas.width = tempImgEl.naturalWidth;
-    previewCanvas.height = tempImgEl.naturalHeight;
-    previewCanvas.style.position = 'absolute';
-    previewCanvas.style.top = '0';
-    previewCanvas.style.left = '0';
-    previewCanvas.style.pointerEvents = 'none';
-    previewCanvas.style.zIndex = '10';
-    container.appendChild(previewCanvas);
-
-    // Показуємо кнопку "Обрізати"
-    btnCrop.classList.remove('hidden');
-    statusText.textContent = 'Виділіть область для обрізки (перетягніть пальцем)';
-
-    // Додаємо обробники подій
-    tempImgEl.onmousedown = handleStart;
-    tempImgEl.onmousemove = handleMove;
-    tempImgEl.onmouseup = handleEnd;
-    tempImgEl.ontouchstart = handleStart;
-    tempImgEl.ontouchmove = handleMove;
-    tempImgEl.ontouchend = handleEnd;
-  };
-}
-
-  function handleStart(e) {
-    isCropping = true;
-    const pos = getPosition(e);
-    cropStartX = pos.x;
-    cropStartY = pos.y;
-    e.preventDefault(); // Забороняємо скролл на мобільних
-  }
-  function handleMove(e) {
-    if (!isCropping) return;
-    const pos = getPosition(e);
-    cropEndX = pos.x;
-    cropEndY = pos.y;
-    
-    // Оновлення рамки виділення
-    updateSelectionBox();
-    e.preventDefault();
-  }
-  function handleEnd() {
-    isCropping = false;
-  }
-  function getPosition(e) {
-    let clientX, clientY;
-    
-    if (e.type.includes('touch')) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-    
-    const rect = tempImgEl.getBoundingClientRect();
-    return {
-      x: clientX - rect.left,
-      y: clientY - rect.top
-    };
-  }
-  function updateSelectionBox() {
-    const previewCtx = previewCanvas.getContext('2d');
-    previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-    
-    // Малюємо напівпрозорий фон
-    previewCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    previewCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
-    
-    // Малюємо "вирізану" область
-    previewCtx.clearRect(
-      cropStartX,
-      cropStartY,
-      cropEndX - cropStartX,
-      cropEndY - cropStartY
-    );
-    
-    // Малюємо рамку
-    previewCtx.strokeStyle = 'red';
-    previewCtx.lineWidth = 2;
-    previewCtx.strokeRect(
-      cropStartX,
-      cropStartY,
-      cropEndX - cropStartX,
-      cropEndY - cropStartY
-    );
-  }
-}
-
-/* ========= Unified flow: pick file -> crop -> OCR -> parse -> render ========= */
-btnPick.addEventListener('click', ()=>filePicker.click());
-
-filePicker.addEventListener('change', async (e)=>{
-  const f = e.target.files && e.target.files[0];
-  if (!f) return;
-  const url = URL.createObjectURL(f);
-  startCropperFromUrl(url);
-});
-
-/* Crop button: take cropped canvas, show preview, OCR, parse, save */
-btnCrop.addEventListener('click', async () => {
-  if (!tempImgEl || !cropStartX || !cropStartY || !cropEndX || !cropEndY) {
-    statusText.textContent = 'Спочатку виділіть область!';
-    return;
-  }
-
-  // Обчислюємо координати обрізки
-  const width = Math.abs(cropEndX - cropStartX);
-  const height = Math.abs(cropEndY - cropStartY);
-  const x = Math.min(cropStartX, cropEndX);
-  const y = Math.min(cropStartY, cropEndY);
-
-  // Обрізаємо зображення
-  const croppedCanvas = document.createElement('canvas');
-  croppedCanvas.width = width;
-  croppedCanvas.height = height;
-  const ctx = croppedCanvas.getContext('2d');
-  ctx.drawImage(
-    tempImgEl,
-    x, y, width, height,  // Обрізана область
-    0, 0, width, height   // Новий canvas
-  );
-
-  // Показуємо результат у previewCanvas
-  previewCanvas.width = croppedCanvas.width;
-  previewCanvas.height = croppedCanvas.height;
-  previewCanvas.getContext('2d').drawImage(croppedCanvas, 0, 0);
-  previewCanvas.classList.remove('hidden');
-
-  // Очищуємо тимчасові елементи
-  tempImgEl.remove();
-  tempImgEl = null;
-  btnCrop.classList.add('hidden');
-  statusText.textContent = 'Обрізка завершена. Обробляємо OCR...';
-
-  // Далі можна викликати OCR (як у вашому оригінальному коді)
-  const text = await runOCRFromCanvas(previewCanvas);
-  const parsed = await parseV519(text);
-  // ... решта логіки
-});
-
-
-/* ========= Camera flow (open, capture, stop) ========= */
-btnOpenCamera.addEventListener('click', async ()=>{
-  try {
-    if (cameraStream) stopCamera();
-    cameraStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' }, audio:false });
-    videoEl.srcObject = cameraStream;
-    videoEl.classList.remove('hidden');
-    btnCapture.classList.remove('hidden');
-    btnStopCamera.classList.remove('hidden');
-    statusText.textContent = 'Камера увімкнена. Наведи на екран і натисни Захопити кадр';
-  } catch (e){
-    console.error('camera error', e);
-    statusText.textContent = 'Не вдалося відкрити камеру';
-  }
-});
-
-btnStopCamera.addEventListener('click', ()=>stopCamera());
-
-function stopCamera(){
-  if (!cameraStream) return;
-  cameraStream.getTracks().forEach(t=>t.stop());
-  cameraStream = null;
-  videoEl.pause();
-  videoEl.srcObject = null;
-  videoEl.classList.add('hidden');
-  btnCapture.classList.add('hidden');
-  btnStopCamera.classList.add('hidden');
-  statusText.textContent = 'Камера зупинена';
-}
-
-btnCapture.addEventListener('click', ()=>{
-  if (!videoEl || videoEl.readyState < 2) { statusText.textContent='Кадр недоступний'; return; }
-  // draw to offscreen canvas then start cropper from data URL
-  const tmp = document.createElement('canvas');
-  tmp.width = videoEl.videoWidth;
-  tmp.height = videoEl.videoHeight;
-  const tctx = tmp.getContext('2d');
-  tctx.drawImage(videoEl,0,0,tmp.width,tmp.height);
-  stopCamera();
-  const url = tmp.toDataURL('image/png');
-  startCropperFromUrl(url);
-});
-
-/* ========= Demo button (як у тебе) ========= */
-btnUseDemo.addEventListener('click', async ()=>{
-  const demoText = `
-    Data Stream
-    DTC.CNT: 1
-    DTCFRZF: P0012
-    FUELSYS1: CL
-    FUELSYS2: -4
-    LOAD PCT(%): 68.2
-    ETC(°C): 90
-    RPM: 760
-    MAP(kPa): 45
-    MAF(g/s): 3.2
-    TPS(%): 12.0
-    O2 B1 S1(V): 0.78
-    O2 B1 S2(V): 0.12
-    SHRTFT1(%): 2.3
-    LONGFT1(%): 5.0
-    SHRTFT2(%): -4.0
-    LONGFT2(%): 1.0
-  `;
-  statusText.textContent = 'Аналізую демо дані…';
-  const parsed = await parseV519(demoText);
-  const tips = await buildAdvice(parsed);
-  await saveSeriesEntry(parsed);
-  await renderResult(parsed, tips);
-  await renderDTCBase();
-  await refreshCharts();
-});
-
-/* ========= DTC ensure & fetch (як у тебе, майже без змін) ========= */
-async function ensureDTCs(codes){
-  // tolerate different key names and falsy
-  if(!codes || !codes.length) return;
-  for(const code of codes){
-    const existing = await dbGet('dtc', code);
-    if (existing) continue;
-    try {
-      const info = await fetchDTCViaProxy(code);
-      const record = {
-        code,
-        name: info.name || 'Невідомий код',
-        desc: info.desc || '',
-        actions: (info.actions && info.actions.length) ? info.actions : [
-          "Перевірити проводку/роз'єм.",
-          "Перевірити значення сенсорів у Data Stream.",
-          "Переглянути рекомендації виробника."
-        ]
+  /* ========= IndexedDB ========= */
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('obd_app_db', 3);
+      req.onupgradeneeded = (e) => {
+        db = e.target.result;
+        if (!db.objectStoreNames.contains('dtc')) db.createObjectStore('dtc', { keyPath: 'code' });
+        if (!db.objectStoreNames.contains('series')) db.createObjectStore('series', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
       };
-      await dbPut('dtc', record);
-    } catch(e){ console.warn('fetch DTC failed', e); }
+      req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+      req.onerror = (e) => reject(e);
+    });
   }
-}
+  async function openDBIfNeeded(){ if(!db) await openDB(); }
+  async function dbPut(store, obj){
+    await openDBIfNeeded();
+    return new Promise((resolve,reject)=>{
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).put(obj);
+      tx.oncomplete=()=>resolve(true);
+      tx.onerror=(e)=>reject(e);
+    });
+  }
+  async function dbGet(store, key){
+    await openDBIfNeeded();
+    return new Promise((resolve,reject)=>{
+      const tx = db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).get(key);
+      req.onsuccess=()=>resolve(req.result);
+      req.onerror=(e)=>reject(e);
+    });
+  }
+  async function dbGetAll(store){
+    await openDBIfNeeded();
+    return new Promise((resolve,reject)=>{
+      const tx = db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).getAll();
+      req.onsuccess=()=>resolve(req.result||[]);
+      req.onerror=(e)=>reject(e);
+    });
+  }
+  async function dbDeleteAll(store){
+    await openDBIfNeeded();
+    return new Promise((resolve,reject)=>{
+      const tx=db.transaction(store,'readwrite');
+      const req=tx.objectStore(store).clear();
+      req.onsuccess=()=>resolve(true);
+      req.onerror=(e)=>reject(e);
+    });
+  }
 
-async function fetchDTCViaProxy(code){
-  const target = `https://obd.avto.pro/${code.toLowerCase()}/`;
-  const url = `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Проксі недоступний');
-  const data = await res.json();
-  const html = data.contents || '';
-  return extractFromHTML(html);
-}
-function extractFromHTML(html){
-  const name = extractBetween(html,'<h1','</h1>').replace(/<[^>]+>/g,'').trim() || '';
-  let desc = '';
-  const metaMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i);
-  if (metaMatch) desc = metaMatch[1].trim();
-  const actions = [];
-  const items = html.match(/<li[^>]*>(.*?)<\/li>/gi) || [];
-  items.forEach(li=>{
-    const txt = li.replace(/<[^>]+>/g,'').trim();
-    if (/причин|симптом|решени|solution|cause|symptom|repair|diagnos|ремонт|совет|рекомендац/i.test(txt)) actions.push(txt);
+  /* ========= Seed families ========= */
+  async function seedFamilies(){
+    const families = [
+      { code:'P03xx', name:'Пропуски запалювання', desc:'Виявлені пропуски запалювання.', actions:[
+        "Перевірити свічки, котушки, дроти.",
+        "Перевірити форсунки та компресію.",
+        "Перевірити підсмок повітря."
+      ]},
+      { code:'P0420', name:'Ефективність каталізатора низька (Bank 1)', desc:'Каталізатор неефективний.', actions:[
+        "Перевірити витоки вихлопу перед катом.",
+        "Оцінити датчики O2 (до/після кату).",
+        "Перевірити суміш."
+      ]},
+      { code:'P0171', name:'Збіднена суміш (Bank 1)', desc:'PCM виявив збіднену суміш.', actions:[
+        "Перевірити підсмок повітря, вакуумні шланги.",
+        "Перевірити MAF/MAP.",
+        "Перевірити тиск палива."
+      ]},
+      { code:'P0103', name:'MAF — високий рівень сигналу', desc:'Високий сигнал з MAF (High input).', actions:[
+        "Оглянути проводку MAF.",
+        "Очистити/замінити MAF.",
+        "Перевірити герметичність впуску."
+      ]}
+    ];
+    for (const f of families) await dbPut('dtc', f);
+  }
+
+  /* ========= Init ========= */
+  document.addEventListener('DOMContentLoaded', async ()=>{
+    await openDB();
+    const seeded = await dbGet('meta','seeded');
+    if(!seeded){ await seedFamilies(); await dbPut('meta',{key:'seeded', value:true}); }
+    await renderDTCBase();
+    await refreshCharts();
   });
-  return { name, desc, actions };
-}
-function extractBetween(html, startTag, endTag){
-  const start = html.indexOf(startTag);
-  if (start === -1) return '';
-  const end = html.indexOf(endTag, start);
-  if (end === -1) return '';
-  return html.substring(start, end + endTag.length);
-}
 
-/* ========= Advice builder (adapted) ========= */
-async function lookupDTC(code){
-  const rec = await dbGet('dtc', code);
-  if (rec) return rec;
-  const fam = code.replace(/(\d)\d{2}$/, '$1xx');
-  const famRec = await dbGet('dtc', fam);
-  if (famRec) return famRec;
-  return { code, name:"Невідомий код", desc:"Немає запису в базі.", actions:[
-    "Перевірити freeze frame та супутні параметри.",
-    "Зчитати додаткові коди і on-board монітори.",
-    "Перевірити живлення, масу, проводку."
-  ]};
-}
-function safeKey(obj, keyVariants){ for(const k of keyVariants) if(obj[k]!==undefined) return obj[k]; return undefined; }
+  /* ========= Utils ========= */
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function dedupe(arr){ const s=new Set(); const out=[]; for(const x of arr){ const k=String(x||'').trim(); if(!s.has(k)){ s.add(k); out.push(x); } } return out; }
 
-async function buildAdvice(data){
-  const tips = [];
-  if (!data) return ['Проблем не виявлено або потрібні додаткові дані.'];
-
-  const dtcs = data.КодиПомилок || data.Коди || [];
-  if (dtcs && dtcs.length){
-    for(const code of dtcs){
-      const info = await lookupDTC(code);
-      tips.push(`Код ${code}: ${info.name}. ${info.desc || ''}`);
-      (info.actions || []).forEach(a => tips.push("• " + a));
+  /* ========= OCR and parsing ========= */
+  async function runOCRFromCanvas(canvas){
+    try {
+      statusText.textContent = '🔎 Виконується OCR…';
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      const { data } = await Tesseract.recognize(blob, 'eng+rus', { logger: m => console.log('Tesseract', m) });
+      statusText.textContent = '✅ OCR завершено';
+      return data?.text ?? '';
+    } catch (e){
+      console.error('OCR error', e);
+      statusText.textContent = '❌ Помилка OCR';
+      throw e;
     }
   }
 
-  if (data.МІЛ === 'ON') tips.push("MIL: ON — усунь активні DTC та заверш цикл їзди.");
+  async function parseV519(text){
+    const out = {};
+    const T = String(text || '').replace(/\s+/g,' ').trim();
+    out.OCRText = T;
 
-  if (typeof data.НапругаАКБ === 'number'){
-    if (data.НапругаАКБ < 11.8) tips.push("Низька напруга АКБ: перевірити акумулятор та заряд генератора.");
-    else if (data.НапругаАКБ > 14.8) tips.push("Висока напруга АКБ: можливий перезаряд — перевірити регулятор.");
+    const dtc = [...T.matchAll(/\b([PBCU]\d{4})\b/gi)].map(m=>m[1].toUpperCase());
+    if (dtc.length) out.КодиПомилок = dtc;
+
+    const rpm = T.match(/\bRPM\b[:\s]*(-?\d{2,5})/i);
+    if (rpm) out.Обороти = +rpm[1];
+
+    const ect = T.match(/\b(ECT|ETC|Coolant)\s*[:\s]*(-?\d{1,5})/i);
+    if (ect){ const val=+ect[2]; if(val>-40 && val<150) out.ТемператураОЖ = val; }
+
+    const map = T.match(/\bMAP\b.*?[:\s]*(-?\d{1,3}(?:\.\d{1,3})?)/i);
+    if (map) out.ТискMAP = +(map[1]);
+
+    const maf = T.match(/\bMAF\b.*?[:\s]*(-?\d{1,3}(?:\.\d{1,3})?)\s?g\/s/i);
+    if (maf) out.МасоваВитратаПовітря_gs = +maf[1];
+
+    const tps = T.match(/\b(TPS|Throttle)\s*`\(?%?\)`?[:\s]*(-?\d{1,3}(?:\.\d+)?)/i);
+    if (tps) out.ПоложенняДроселяВідсоток = +tps[2];
+
+    const volt = T.match(/\b(Battery|Voltage)\b[:\s]*([0-9]{1,2}\.?[0-9])\s?V\b/i);
+    if (volt) out.НапругаАКБ = +volt[2];
+
+    const mil = T.match(/\b(MIL|Check\s*Engine)\b.*\b(ON|OFF)\b/i);
+    if (mil) out.МІЛ = mil[2].toUpperCase();
+
+    return out;
   }
 
-  if (typeof data.ТемператураОЖ === 'number'){
-    if (data.ТемператураОЖ > 115) tips.push("Перегрів: перевірити термостат, вентилятори, рівень антифризу.");
+  /* ========= Crop flow ========= */
+  function startCropperFromUrl(url) {
+    const container = document.getElementById('cropContainer');
+    container.innerHTML = '';
+    container.classList.remove('hidden');
+    container.style.position = 'relative';
+
+    if (tempImgEl) {
+      try { tempImgEl.remove(); } catch(e){}
+      tempImgEl = null;
+    }
+
+    tempImgEl = document.createElement('img');
+    tempImgEl.src = url;
+    tempImgEl.className = 'crop-target';
+    tempImgEl.style.maxWidth = '100%';
+    tempImgEl.style.maxHeight = '70vh';
+    tempImgEl.style.display = 'block';
+    tempImgEl.style.margin = '0 auto';
+    tempImgEl.style.touchAction = 'none';
+
+    container.appendChild(tempImgEl);
+
+    tempImgEl.onload = () => {
+      previewCanvas.width = tempImgEl.naturalWidth;
+      previewCanvas.height = tempImgEl.naturalHeight;
+      previewCanvas.style.position = 'absolute';
+      previewCanvas.style.top = '0';
+      previewCanvas.style.left = '0';
+      previewCanvas.style.zIndex = '10';
+      previewCanvas.classList.remove('hidden');
+
+      const rect = tempImgEl.getBoundingClientRect();
+      previewCanvas.style.width = rect.width + 'px';
+      previewCanvas.style.height = rect.height + 'px';
+
+      container.appendChild(previewCanvas);
+
+      btnCrop.classList.remove('hidden');
+      statusText.textContent = 'Виділіть область для обрізки (перетягніть пальцем або мишою)';
+
+      setupCropSelection(tempImgEl, previewCanvas);
+    };
   }
 
-  if (Array.isArray(data.IMReadiness)){
-    const inc = data.IMReadiness.filter(x=>x.status==='INC');
-    if (inc.length) tips.push(`Монітори не готові: ${inc.map(x=>x.name).join(', ')}.`);
+  function setupCropSelection(img, canvas) {
+    let isCropping = false;
+    let startX = null, startY = null, endX = null, endY = null;
+    const ctx = canvas.getContext('2d');
+
+    function getPosFromEvent(e) {
+      const rect = img.getBoundingClientRect();
+      const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+      const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
+      const x = ((clientX - rect.left) / rect.width) * img.naturalWidth;
+      const y = ((clientY - rect.top) / rect.height) * img.naturalHeight;
+      return { x: Math.max(0, Math.min(img.naturalWidth, x)), y: Math.max(0, Math.min(img.naturalHeight, y)) };
+    }
+
+    function drawOverlay() {
+      ctx.clearRect(0,0,canvas.width, canvas.height);
+      if (startX == null || endX == null) return;
+      const x = Math.min(startX, endX);
+      const y = Math.min(startY, endY);
+      const w = Math.abs(endX - startX);
+      const h = Math.abs(endY - startY);
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(0,0,canvas.width, canvas.height);
+      ctx.clearRect(x,y,w,h);
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = Math.max(2, Math.round(canvas.width / 400));
+      ctx.strokeRect(x,y,w,h);
+    }
+
+    function start(e) {
+      isCropping = true;
+      const pos = getPosFromEvent(e);
+      startX = pos.x; startY = pos.y;
+      endX = pos.x; endY = pos.y;
+      cropStartX = startX; cropStartY = startY; cropEndX = endX; cropEndY = endY;
+      drawOverlay();
+      e.preventDefault();
+    }
+
+    function move(e) {
+      if (!isCropping) return;
+      const pos = getPosFromEvent(e);
+      endX = pos.x; endY = pos.y;
+      cropStartX = Math.min(startX, endX);
+      cropStartY = Math.min(startY, endY);
+      cropEndX = Math.max(startX, endX);
+      cropEndY = Math.max(startY, endY);
+      drawOverlay();
+      e.preventDefault();
+    }
+
+    function end(e) {
+      isCropping = false;
+      if (Math.abs(endX - startX) < 4) { endX = startX + 4; }
+      if (Math.abs(endY - startY) < 4) { endY = startY + 4; }
+      cropStartX = Math.min(startX, endX);
+      cropStartY = Math.min(startY, endY);
+      cropEndX = Math.max(startX, endX);
+      cropEndY = Math.max(startY, endY);
+    }
+
+    img.addEventListener('mousedown', start);
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    img.addEventListener('touchstart', start, { passive: false });
+    window.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('touchend', end);
   }
 
-  if (data.Mode6 && data.Mode6.status){
-    if (data.Mode6.status === 'FAIL') tips.push("Mode 6: тест не пройдено. Перевірити Test/Min/Max.");
-    else tips.push("Mode 6: тест пройдено.");
-  }
+  /* ========= Crop action ========= */
+  btnCrop.addEventListener('click', async () => {
+    if (!tempImgEl || cropStartX == null || cropStartY == null || cropEndX == null || cropEndY == null) {
+      statusText.textContent = 'Спочатку виділіть область!';
+      return;
+    }
 
-  return dedupe(tips);
-}
+    const width = Math.max(1, Math.round(cropEndX - cropStartX));
+    const height = Math.max(1, Math.round(cropEndY - cropStartY));
 
-/* ========= Series & Charts (як у тебе) ========= */
-async function saveSeriesEntry(parsed){
-  const entry = { id: crypto.randomUUID(), ts: Date.now(), screenType: 'data_stream', data: parsed };
-  await dbPut('series', entry);
-  return entry;
-}
-async function getRecentSeries(limit=60){
-  const all = await dbGetAll('series');
-  return all.slice(-limit);
-}
-function plotLine(canvasEl, values, color='#007aff', labelMin='min', labelMax='max'){
-  const cvs = canvasEl;
-  const ctx = cvs.getContext('2d');
-  const w = cvs.width = cvs.clientWidth;
-  const h = cvs.height = 180;
-  ctx.clearRect(0,0,w,h);
-  if (!values.length) {
-    ctx.fillStyle = '#999'; ctx.font = '12px system-ui'; ctx.fillText('Немає даних для графіка', 12, 24); return;
-  }
-  const min = Math.min(...values), max = Math.max(...values);
-  const pad = 10;
-  ctx.strokeStyle = '#e5e7eb';
-  ctx.beginPath(); ctx.moveTo(pad, h - pad); ctx.lineTo(w - pad, h - pad); ctx.stroke();
-  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
-  values.forEach((v,i)=>{
-    const x = pad + (i / Math.max(1, values.length - 1)) * (w - pad*2);
-    const y = pad + (1 - (v - min) / Math.max(1, (max - min))) * (h - pad*2);
-    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    const croppedCanvas = document.createElement('canvas');
+    croppedCanvas.width = width;
+    croppedCanvas.height = height;
+    const ctx = croppedCanvas.getContext('2d');
+
+    ctx.drawImage(
+      tempImgEl,
+      Math.round(cropStartX), Math.round(cropStartY), width, height,
+      0, 0, width, height
+    );
+
+    previewCanvas.width = width;
+    previewCanvas.height = height;
+    previewCanvas.style.position = 'relative';
+    previewCanvas.style.width = '100%';
+    previewCanvas.style.height = 'auto';
+    previewCanvas.getContext('2d').drawImage(croppedCanvas, 0, 0);
+    previewCanvas.classList.remove('hidden');
+
+    try { tempImgEl.remove(); } catch(e){}
+    tempImgEl = null;
+    document.getElementById('cropContainer').classList.add('hidden');
+    btnCrop.classList.add('hidden');
+    statusText.textContent = 'Обрізка завершена. Обробляємо OCR...';
+
+    try {
+      const text = await runOCRFromCanvas(previewCanvas);
+      const parsed = await parseV519(text);
+      await ensureDTCs(parsed.КодиПомилок);
+      const tips = await buildAdvice(parsed);
+      await saveSeriesEntry(parsed);
+      renderResult(parsed, tips);
+      await renderDTCBase();
+      await refreshCharts();
+    } catch (e) {
+      console.error(e);
+      statusText.textContent = 'Помилка обробки OCR';
+    }
   });
-  ctx.stroke();
-  ctx.fillStyle = '#6b7280'; ctx.font = '11px system-ui';
-  ctx.fillText(`${labelMin} ${min.toFixed(2)}`, w - 140, h - 26);
-  ctx.fillText(`${labelMax} ${max.toFixed(2)}`, w - 140, h - 12);
-}
-async function refreshCharts(){
-  const series = await getRecentSeries(60);
-  const rpmVals = series.map(s => s.data.Обороти).filter(v => typeof v === 'number');
-  const ectVals = series.map(s => s.data.ТемператураОЖ).filter(v => typeof v === 'number');
-  const mapVals = series.map(s => s.data.ТискMAP).filter(v => typeof v === 'number');
-  const mafVals = series.map(s => s.data.МасоваВитратаПовітря_gs).filter(v => typeof v === 'number');
-  const tpsVals = series.map(s => s.data.ПоложенняДроселяВідсоток).filter(v => typeof v === 'number');
-  plotLine(document.getElementById('chartRPM'), rpmVals, '#d946ef');
-  plotLine(document.getElementById('chartECT'), ectVals, '#2563eb');
-  plotLine(document.getElementById('chartMAP'), mapVals, '#10b981');
-  plotLine(document.getElementById('chartMAF'), mafVals, '#f59e0b');
-  plotLine(document.getElementById('chartTPS'), tpsVals, '#8b5cf6');
-}
 
-/* ========= Render (універсальний) ========= */
-function renderKV(obj){
-  kvEl.innerHTML = '';
-  const add = (k, v) => {
-    const key = document.createElement('div'); key.textContent = k;
-    const val = document.createElement('div');
-    if (v && typeof v === 'object' && !Array.isArray(v)) {
-      const sub = Object.entries(v).map(([kk,vv])=>`${kk}: ${vv}`).join(', ');
-      val.innerHTML = `<span class="badge">${escapeHtml(sub)}</span>`;
-    } else if (Array.isArray(v)) {
-      if (v.length && typeof v[0] === 'object') {
-        const items = v.map(item=>Object.entries(item).map(([kk,vv])=>`${kk}: ${vv}`).join(', ')).join(' | ');
-        val.innerHTML = `<span class="badge">${escapeHtml(items)}</span>`;
-      } else {
-        val.innerHTML = `<span class="badge">${escapeHtml((v||[]).join(', '))}</span>`;
+  /* ========= Camera flow ========= */
+  btnPick.addEventListener('click', ()=> filePicker.click());
+
+  filePicker.addEventListener('change', async (e)=>{
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    startCropperFromUrl(url);
+  });
+
+  btnOpenCamera.addEventListener('click', async ()=>{
+    try {
+      if (cameraStream) stopCamera();
+      cameraStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' }, audio:false });
+      videoEl.srcObject = cameraStream;
+      videoEl.classList.remove('hidden');
+      btnCapture.classList.remove('hidden');
+      btnStopCamera.classList.remove('hidden');
+      statusText.textContent = 'Камера увімкнена. Наведи на екран і натисни Захопити кадр';
+    } catch (e){
+      console.error('camera error', e);
+      statusText.textContent = 'Не вдалося відкрити камеру';
+    }
+  });
+
+  btnStopCamera.addEventListener('click', ()=> stopCamera());
+
+  function stopCamera(){
+    if (!cameraStream) return;
+    cameraStream.getTracks().forEach(t=>t.stop());
+    cameraStream = null;
+    videoEl.pause();
+    videoEl.srcObject = null;
+    videoEl.classList.add('hidden');
+    btnCapture.classList.add('hidden');
+    btnStopCamera.classList.add('hidden');
+    statusText.textContent = 'Камера зупинена';
+  }
+
+  btnCapture.addEventListener('click', ()=>{
+    if (!videoEl || videoEl.readyState < 2) { statusText.textContent='Кадр недоступний'; return; }
+    const tmp = document.createElement('canvas');
+    tmp.width = videoEl.videoWidth;
+    tmp.height = videoEl.videoHeight;
+    tmp.getContext('2d').drawImage(videoEl,0,0,tmp.width,tmp.height);
+    stopCamera();
+    const url = tmp.toDataURL('image/png');
+    startCropperFromUrl(url);
+  });
+
+  /* ========= Demo ========= */
+  btnUseDemo.addEventListener('click', async ()=>{
+    const demoText = `
+      Data Stream
+      DTC.CNT: 1
+      DTCFRZF: P0012
+      FUELSYS1: CL
+      LOAD PCT(%): 68.2
+      ETC(°C): 90
+      RPM: 760
+      MAP(kPa): 45
+      MAF(g/s): 3.2
+      TPS(%): 12.0
+      O2 B1 S1(V): 0.78
+      SHRTFT1(%): 2.3
+    `;
+    statusText.textContent = 'Аналізую демо дані…';
+    const parsed = await parseV519(demoText);
+    const tips = await buildAdvice(parsed);
+    await saveSeriesEntry(parsed);
+    renderResult(parsed, tips);
+    await renderDTCBase();
+    await refreshCharts();
+  });
+
+  /* ========= DTC fetch/ensure ========= */
+  async function ensureDTCs(codes){
+    if(!codes || !codes.length) return;
+    for(const code of codes){
+      const existing = await dbGet('dtc', code);
+      if (existing) continue;
+      try {
+        const info = await fetchDTCViaProxy(code);
+        const record = {
+          code,
+          name: info.name || 'Невідомий код',
+          desc: info.desc || '',
+          actions: (info.actions && info.actions.length) ? info.actions : [
+            "Перевірити проводку/роз'єм.",
+            "Перевірити значення сенсорів у Data Stream.",
+            "Переглянути рекомендації виробника."
+          ]
+        };
+        await dbPut('dtc', record);
+      } catch(e){ console.warn('fetch DTC failed', e); }
+    }
+  }
+
+  async function fetchDTCViaProxy(code){
+    const target = `https://obd.avto.pro/${code.toLowerCase()}/`;
+    const url = `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Проксі недоступний');
+    const data = await res.json();
+    const html = data.contents || '';
+    return extractFromHTML(html);
+  }
+  function extractFromHTML(html){
+    const name = extractBetween(html,'<h1','</h1>').replace(/<[^>]+>/g,'').trim() || '';
+    let desc = '';
+    const metaMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i);
+    if (metaMatch) desc = metaMatch[1].trim();
+    const actions = [];
+    const items = html.match(/<li[^>]*>(.*?)<\/li>/gi) || [];
+    items.forEach(li=>{
+      const txt = li.replace(/<[^>]+>/g,'').trim();
+      if (/причин|симptom|решени|solution|cause|symptom|repair|diagnos|ремонт|совет|рекомендац/i.test(txt)) actions.push(txt);
+    });
+    return { name, desc, actions };
+  }
+  function extractBetween(html, startTag, endTag){
+    const start = html.indexOf(startTag);
+    if (start === -1) return '';
+    const end = html.indexOf(endTag, start);
+    if (end === -1) return '';
+    return html.substring(start, end + endTag.length);
+  }
+
+  /* ========= Advice builder ========= */
+  async function lookupDTC(code){
+    const rec = await dbGet('dtc', code);
+    if (rec) return rec;
+    const fam = code.replace(/(\d)\d{2}$/, '$1xx');
+    const famRec = await dbGet('dtc', fam);
+    if (famRec) return famRec;
+    return { code, name:"Невідомий код", desc:"Немає запису в базі.", actions:[
+      "Перевірити freeze frame та супутні параметри.",
+      "Зчитати додаткові коди і on-board монітори.",
+      "Перевірити живлення, масу, проводку."
+    ]};
+  }
+
+  async function buildAdvice(data){
+    const tips = [];
+    if (!data) return ['Проблем не виявлено або потрібні додаткові дані.'];
+
+    const dtcs = data.КодиПомилок || [];
+    if (dtcs && dtcs.length){
+      for(const code of dtcs){
+        const info = await lookupDTC(code);
+        tips.push(`Код ${code}: ${info.name}. ${info.desc || ''}`);
+        (info.actions || []).forEach(a => tips.push("• " + a));
       }
-    } else {
-      val.innerHTML = `<span class="badge">${escapeHtml(String(v))}</span>`;
     }
-    kvEl.appendChild(key); kvEl.appendChild(val);
-  };
 
-  if (!obj || !Object.keys(obj).length) { add('Статус','Немає розпізнаних полів'); return; }
+    if (data.МІЛ === 'ON') tips.push("MIL: ON — усунь активні DTC та заверш цикл їзди.");
 
-  Object.entries(obj).forEach(([k,v])=>{
-    if (k === 'OCRText') return;
-    add(k, v);
+    if (typeof data.НапругаАКБ === 'number'){
+      if (data.НапругаАКБ < 11.8) tips.push("Низька напруга АКБ: перевірити акумулятор та заряд генератора.");
+      else if (data.НапругаАКБ > 14.8) tips.push("Висока напруга АКБ: можливий перезаряд — перевірити регулятор.");
+    }
+
+    if (typeof data.ТемператураОЖ === 'number'){
+      if (data.ТемператураОЖ > 115) tips.push("Перегрів: перевірити термостат, вентилятори, рівень антифризу.");
+    }
+
+    return dedupe(tips);
+  }
+
+  /* ========= Series & Charts ========= */
+  async function saveSeriesEntry(parsed){
+    const entry = { id: crypto.randomUUID(), ts: Date.now(), screenType: 'data_stream', data: parsed };
+    await dbPut('series', entry);
+    return entry;
+  }
+  async function getRecentSeries(limit=60){
+    const all = await dbGetAll('series');
+    return all.slice(-limit);
+  }
+  function plotLine(canvasEl, values, color='#007aff', label=''){
+    const cvs = canvasEl;
+    const ctx = cvs.getContext('2d');
+    const w = cvs.width = cvs.clientWidth || 600;
+    const h = cvs.height = 160;
+    ctx.clearRect(0,0,w,h);
+    if (!values.length) {
+      ctx.fillStyle = '#999'; ctx.font = '12px system-ui'; ctx.fillText('Немає даних', 12, 24); return;
+    }
+    const min = Math.min(...values), max = Math.max(...values);
+    const pad = 10;
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.beginPath(); ctx.moveTo(pad, h - pad); ctx.lineTo(w - pad, h - pad); ctx.stroke();
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+    values.forEach((v,i)=>{
+      const x = pad + (i / Math.max(1, values.length - 1)) * (w - pad*2);
+      const y = pad + (1 - (v - min) / Math.max(1, (max - min))) * (h - pad*2);
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    ctx.fillStyle = '#6b7280'; ctx.font = '11px system-ui';
+    ctx.fillText(`${label} min:${min.toFixed(2)} max:${max.toFixed(2)}`, 12, h - 8);
+  }
+  async function refreshCharts(){
+    const series = await getRecentSeries(60);
+    const rpmVals = series.map(s => s.data.Обороти).filter(v => typeof v === 'number');
+    const ectVals = series.map(s => s.data.ТемператураОЖ).filter(v => typeof v === 'number');
+    const mapVals = series.map(s => s.data.ТискMAP).filter(v => typeof v === 'number');
+    const mafVals = series.map(s => s.data.МасоваВитратаПовітря_gs).filter(v => typeof v === 'number');
+    const tpsVals = series.map(s => s.data.ПоложенняДроселяВідсоток).filter(v => typeof v === 'number');
+    plotLine(document.getElementById('chartRPM'), rpmVals, '#d946ef', 'RPM');
+    plotLine(document.getElementById('chartECT'), ectVals, '#2563eb', 'ECT');
+    plotLine(document.getElementById('chartMAP'), mapVals, '#10b981', 'MAP');
+    plotLine(document.getElementById('chartMAF'), mafVals, '#f59e0b', 'MAF');
+    plotLine(document.getElementById('chartTPS'), tpsVals, '#8b5cf6', 'TPS');
+  }
+
+  /* ========= Render ========= */
+  function renderKV(obj){
+    kvEl.innerHTML = '';
+    const add = (k, v) => {
+      const key = document.createElement('div'); key.textContent = k;
+      const val = document.createElement('div');
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        const sub = Object.entries(v).map(([kk,vv])=>`${kk}: ${vv}`).join(', ');
+        val.innerHTML = `<span class="badge">${escapeHtml(sub)}</span>`;
+      } else if (Array.isArray(v)) {
+        val.innerHTML = `<span class="badge">${escapeHtml((v||[]).join(', '))}</span>`;
+      } else {
+        val.innerHTML = `<span class="badge">${escapeHtml(String(v))}</span>`;
+      }
+      kvEl.appendChild(key); kvEl.appendChild(val);
+    };
+
+    if (!obj || !Object.keys(obj).length) { add('Статус','Немає розпізнаних полів'); return; }
+
+    Object.entries(obj).forEach(([k,v])=>{
+      if (k === 'OCRText') return;
+      add(k, v);
+    });
+
+    if (obj.OCRText){
+      const details = document.createElement('details');
+      details.className = 'debug';
+      const sum = document.createElement('summary'); sum.textContent = 'Показати сирий OCR‑текст';
+      const pre = document.createElement('pre'); pre.textContent = obj.OCRText;
+      details.appendChild(sum); details.appendChild(pre); kvEl.appendChild(details);
+    }
+  }
+
+  function renderAdvice(arr){
+    adviceEl.innerHTML = '';
+    if (!arr || !arr.length){
+      const li = document.createElement('li'); li.textContent = 'Проблем не виявлено або потрібні додаткові дані.'; adviceEl.appendChild(li); return;
+    }
+    arr.forEach(x=>{ const li=document.createElement('li'); li.textContent = x; adviceEl.appendChild(li); });
+  }
+
+  function renderResult(parsed, tips){
+    renderKV(parsed);
+    renderAdvice(tips);
+    quickSummary.innerHTML = '';
+    statusText.textContent = 'Готово';
+    if (Array.isArray(parsed.КодиПомилок) && parsed.КодиПомилок.length){
+      const pill = document.createElement('div'); pill.className='pill'; pill.textContent = `DTC: ${parsed.КодиПомилок.join(', ')}`; quickSummary.appendChild(pill);
+    }
+    if (typeof parsed.Обороти === 'number'){ const pill=document.createElement('div'); pill.className='pill'; pill.textContent = `RPM: ${parsed.Обороти}`; quickSummary.appendChild(pill); }
+    if (typeof parsed.ТемператураОЖ === 'number'){ const pill=document.createElement('div'); pill.className='pill'; pill.textContent = `ECT: ${parsed.ТемператураОЖ}°C`; quickSummary.appendChild(pill); }
+  }
+
+  /* ========= DTC base render & import/export ========= */
+  async function renderDTCBase(){
+    dtcBaseView.innerHTML = '';
+    const all = await dbGetAll('dtc');
+    const keys = all.map(x=>x.code).sort();
+    if (!keys.length){
+      const d1=document.createElement('div'); d1.textContent='—'; dtcBaseView.appendChild(d1);
+      const d2=document.createElement('div'); d2.textContent='База порожня'; dtcBaseView.appendChild(d2);
+      return;
+    }
+    keys.slice(0,30).forEach(code=>{
+      const rec = all.find(x=>x.code===code);
+      const kEl=document.createElement('div'); kEl.textContent=code;
+      const vEl=document.createElement('div'); vEl.innerHTML=`<span class="badge">${escapeHtml(rec.name||'')}</span> <div class="small">${escapeHtml(rec.desc||'')}</div>`;
+      dtcBaseView.appendChild(kEl); dtcBaseView.appendChild(vEl);
+    });
+    if (keys.length>30){
+      const mk=document.createElement('div'); mk.textContent='…'; dtcBaseView.appendChild(mk);
+      const mv=document.createElement('div'); mv.textContent=`Показано 30 з ${keys.length}`; dtcBaseView.appendChild(mv);
+    }
+  }
+
+  downloadDB.addEventListener('click', async ()=>{
+    const dtc = await dbGetAll('dtc'); const series = await dbGetAll('series');
+    const payload = { dtc, series, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(payload,null,2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='obd_analyzer_db.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   });
 
-  if (obj.OCRText){
-    const details = document.createElement('details');
-    details.className = 'debug';
-    const sum = document.createElement('summary'); sum.textContent = 'Показати сирий OCR‑текст';
-    const pre = document.createElement('pre'); pre.textContent = obj.OCRText;
-    details.appendChild(sum); details.appendChild(pre); kvEl.appendChild(details);
-  }
-}
-
-function renderAdvice(arr){
-  adviceEl.innerHTML = '';
-  if (!arr || !arr.length){
-    const li = document.createElement('li'); li.textContent = 'Проблем не виявлено або потрібні додаткові дані.'; adviceEl.appendChild(li); return;
-  }
-  arr.forEach(x=>{ const li=document.createElement('li'); li.textContent = x; adviceEl.appendChild(li); });
-}
-
-function renderResult(parsed, tips){
-  renderKV(parsed);
-  renderAdvice(tips);
-  quickSummary.innerHTML = '';
-  statusText.textContent = 'Готово';
-  if (Array.isArray(parsed.КодиПомилок) && parsed.КодиПомилок.length){
-    const pill = document.createElement('div'); pill.className='pill'; pill.textContent = `DTC: ${parsed.КодиПомилок.join(', ')}`; quickSummary.appendChild(pill);
-  }
-  if (typeof parsed.Обороти === 'number'){ const pill=document.createElement('div'); pill.className='pill'; pill.textContent = `RPM: ${parsed.Обороти}`; quickSummary.appendChild(pill); }
-  if (typeof parsed.ТемператураОЖ === 'number'){ const pill=document.createElement('div'); pill.className='pill'; pill.textContent = `ECT: ${parsed.ТемператураОЖ}°C`; quickSummary.appendChild(pill); }
-  if (typeof parsed.ТискMAP === 'number'){ const pill=document.createElement('div'); pill.className='pill'; pill.textContent = `MAP: ${parsed.ТискMAP} kPa`; quickSummary.appendChild(pill); }
-  if (typeof parsed.МасоваВитратаПовітря_gs === 'number'){ const pill=document.createElement('div'); pill.className='pill'; pill.textContent = `MAF: ${parsed.МасоваВитратаПовітря_gs} g/s`; quickSummary.appendChild(pill); }
-  if (typeof parsed.ПоложенняДроселяВідсоток === 'number'){ const pill=document.createElement('div'); pill.className='pill'; pill.textContent = `TPS: ${parsed.ПоложенняДроселяВідсоток}%`; quickSummary.appendChild(pill); }
-}
-
-/* ========= DTC base render & import/export ========= */
-async function renderDTCBase(){
-  dtcBaseView.innerHTML = '';
-  const all = await dbGetAll('dtc');
-  const keys = all.map(x=>x.code).sort();
-  if (!keys.length){
-    const d1=document.createElement('div'); d1.textContent='—'; dtcBaseView.appendChild(d1);
-    const d2=document.createElement('div'); d2.textContent='База порожня'; dtcBaseView.appendChild(d2);
-    return;
-  }
-  keys.slice(0,30).forEach(code=>{
-    const rec = all.find(x=>x.code===code);
-    const kEl=document.createElement('div'); kEl.textContent=code;
-    const vEl=document.createElement('div'); vEl.innerHTML=`<span class="badge">${escapeHtml(rec.name||'')}</span> <div class="small">${escapeHtml(rec.desc||'')}</div>`;
-    dtcBaseView.appendChild(kEl); dtcBaseView.appendChild(vEl);
+  importBtn.addEventListener('click', ()=> importFile.click());
+  importFile.addEventListener('change', async (e)=>{
+    const f = e.target.files[0]; if(!f) return;
+    const text = await f.text();
+    try {
+      const data = JSON.parse(text);
+      await dbDeleteAll('dtc'); await dbDeleteAll('series');
+      if (Array.isArray(data.dtc)) for (const rec of data.dtc) await dbPut('dtc', rec);
+      if (Array.isArray(data.series)) for (const s of data.series) await dbPut('series', s);
+      await renderDTCBase(); await refreshCharts();
+      alert('Імпорт виконано');
+    } catch(e){ alert('Помилка імпорту'); }
   });
-  if (keys.length>30){
-    const mk=document.createElement('div'); mk.textContent='…'; dtcBaseView.appendChild(mk);
-    const mv=document.createElement('div'); mv.textContent=`Показано 30 з ${keys.length}`; dtcBaseView.appendChild(mv);
+
+  /* ========= Helper small fixes ========= */
+  async function ensureDTCsFlexible(parsed){
+    const codes = parsed?.КодиПомилок || parsed?.Коди || parsed?.Коды || [];
+    await ensureDTCs(codes);
   }
-}
 
-downloadDB.addEventListener('click', async ()=>{
-  const dtc = await dbGetAll('dtc'); const series = await dbGetAll('series');
-  const payload = { dtc, series, exportedAt: new Date().toISOString() };
-  const blob = new Blob([JSON.stringify(payload,null,2)], { type:'application/json' });
-  const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='obd_analyzer_db.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-});
-
-importBtn.addEventListener('click', ()=> importFile.click());
-importFile.addEventListener('change', async (e)=>{
-  const f = e.target.files[0]; if(!f) return;
-  const text = await f.text();
-  try {
-    const data = JSON.parse(text);
-    await dbDeleteAll('dtc'); await dbDeleteAll('series');
-    if (Array.isArray(data.dtc)) for (const rec of data.dtc) await dbPut('dtc', rec);
-    if (Array.isArray(data.series)) for (const s of data.series) await dbPut('series', s);
-    await renderDTCBase(); await refreshCharts();
-    alert('Імпорт виконано');
-  } catch(e){ alert('Помилка імпорту'); }
-});
-
-/* ========= Helper small fixes ========= */
-// compatibility with different OCR key names
-async function ensureDTCsFlexible(parsed){
-  const codes = parsed?.КодиПомилок || parsed?.Коди || parsed?.Коды || [];
-  await ensureDTCs(codes);
-}
-
-/* ========= Old handlers cleanup: none left ========= */
-</script>
+  </script>
 </body>
 </html>
