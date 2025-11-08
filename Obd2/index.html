@@ -336,31 +336,31 @@ async function runOCRFromCanvas(canvas){
 }
 
 /* ========= Cropper helper ========= */
-function startCropperFromUrl(url){
-  // cleanup
-  if (cropper){ cropper.destroy(); cropper=null; }
-  if (tempImgEl){ tempImgEl.remove(); tempImgEl=null; }
+ function startCropperFromUrl(url) {
+     // cleanup
+     if (window.cropper) { window.cropper.destroy(); window.cropper = null; }
+     if (tempImgEl) { tempImgEl.remove(); tempImgEl = null; }
 
-  tempImgEl = document.createElement('img');
-  tempImgEl.src = url;
-  tempImgEl.style.maxWidth = '90vw';
-  tempImgEl.style.maxHeight = '70vh';
-  tempImgEl.style.display = 'block';
-  document.body.appendChild(tempImgEl);
+     tempImgEl = document.createElement('img');
+     tempImgEl.src = url;
+     tempImgEl.style.maxWidth = '90vw';
+     tempImgEl.style.maxHeight = '70vh';
+     tempImgEl.style.display = 'block';
+     document.body.appendChild(tempImgEl);
 
-  tempImgEl.onload = () => {
- const cropper = new Cropper(tempImgEl, {
-      aspectRatio: NaN,
-      viewMode: 1,
-      autoCropArea: 0.9,
-      movable: true,
-      zoomable: true,
-      responsive: true
-    });
-    btnCrop.classList.remove('hidden');
-    statusText.textContent = 'Виділіть екран сканера і натисніть Обрізати';
-  };
-}
+     tempImgEl.onload = () => {
+       window.cropper = new Cropper(tempImgEl, {  // Використовуйте window.cropper
+         aspectRatio: NaN,
+         viewMode: 1,
+         autoCropArea: 0.9,
+         movable: true,
+         zoomable: true,
+         responsive: true
+       });
+       btnCrop.classList.remove('hidden');
+       statusText.textContent = 'Виділіть екран сканера і натисніть Обрізати';
+     };
+   }
 
 /* ========= Unified flow: pick file -> crop -> OCR -> parse -> render ========= */
 btnPick.addEventListener('click', ()=>filePicker.click());
