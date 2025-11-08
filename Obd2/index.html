@@ -341,63 +341,98 @@ async function runOCRFromCanvas(canvas){
 let cropStartX, cropStartY, cropEndX, cropEndY;
 let isCropping = false;
 //let tempImgEl = null;
-
 function startCropperFromUrl(url) {
   // Очищення попередніх елементів
   if (tempImgEl) {
     tempImgEl.remove();
     tempImgEl = null;
   }
-
   // Створення нового зображення
   tempImgEl = document.createElement('img');
   tempImgEl.src = url;
   tempImgEl.style.maxWidth = '90vw';
   tempImgEl.style.maxHeight = '70vh';
   tempImgEl.style.display = 'block';
+  tempImgEl.style.touchAction = 'none'; // Важливо для торч-подій
   document.body.appendChild(tempImgEl);
-
   // Показуємо кнопку "Обрізати"
   btnCrop.classList.remove('hidden');
-  statusText.textContent = 'Виділіть область для обрізки (перетягніть мишкою)';
-
-  // Додаємо обробники подій для виділення області
+  statusText.textContent = 'Виділіть область для обрізки (перетягніть пальцем)';
+  // Додаємо обробники подій для десктопів і мобільних пристроїв
   tempImgEl.onload = () => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = tempImgEl.naturalWidth;
-    canvas.height = tempImgEl.naturalHeight;
-    ctx.drawImage(tempImgEl, 0, 0);
-
-    // Відображення рамки виділення
-    tempImgEl.onmousedown = (e) => {
-      isCropping = true;
-      cropStartX = e.offsetX;
-      cropStartY = e.offsetY;
-    };
-
-    tempImgEl.onmousemove = (e) => {
-      if (!isCropping) return;
-      cropEndX = e.offsetX;
-      cropEndY = e.offsetY;
-
-      // Оновлення рамки виділення (можна додати візуалізацію)
-      const previewCtx = previewCanvas.getContext('2d');
-      previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-      previewCtx.strokeStyle = 'red';
-      previewCtx.lineWidth = 2;
-      previewCtx.strokeRect(
-        cropStartX,
-        cropStartY,
-        cropEndX - cropStartX,
-        cropEndY - cropStartY
-      );
-    };
-
-    tempImgEl.onmouseup = () => {
-      isCropping = false;
-    };
+    // Для миші
+    tempImgEl.onmousedown = handleStart;
+    tempImgEl.onmousemove = handleMove;
+    tempImgEl.onmouseup = handleEnd;
+    
+    // Для торч-пристроїв
+    tempImgEl.ontouchstart = handleStart;
+    tempImgEl.ontouchmove = handleMove;
+    tempImgEl.ontouchend = handleEnd;
   };
+  function handleStart(e) {
+    isCropping = true;
+    const pos = getPosition(e);
+    cropStartX = pos.x;
+    cropStartY = pos.y;
+    e.preventDefault(); // Забороняємо скролл на мобільних
+  }
+  function handleMove(e) {
+    if (!isCropping) return;
+    const pos = getPosition(e);
+    cropEndX = pos.x;
+    cropEndY = pos.y;
+    
+    // Оновлення рамки виділення
+    updateSelectionBox();
+    e.preventDefault();
+  }
+  function handleEnd() {
+    isCropping = false;
+  }
+  function getPosition(e) {
+    let clientX, clientY;
+    
+    if (e.type.includes('touch')) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    
+    const rect = tempImgEl.getBoundingClientRect();
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  }
+  function updateSelectionBox() {
+    const previewCtx = previewCanvas.getContext('2d');
+    previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    
+    // Малюємо напівпрозорий фон
+    previewCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    previewCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+    
+    // Малюємо "вирізану" область
+    previewCtx.clearRect(
+      cropStartX,
+      cropStartY,
+      cropEndX - cropStartX,
+      cropEndY - cropStartY
+    );
+    
+    // Малюємо рамку
+    previewCtx.strokeStyle = 'red';
+    previewCtx.lineWidth = 2;
+    previewCtx.strokeRect(
+      cropStartX,
+      cropStartY,
+      cropEndX - cropStartX,
+      cropEndY - cropStartY
+    );
+  }
 }
 
 /* ========= Unified flow: pick file -> crop -> OCR -> parse -> render ========= */
