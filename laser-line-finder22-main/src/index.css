@@ -1,0 +1,227 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 220 20% 6%;
+    --foreground: 0 0% 95%;
+
+    --card: 220 18% 10%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 220 18% 10%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 142 76% 50%;
+    --primary-foreground: 220 20% 6%;
+
+    --secondary: 0 72% 55%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 220 15% 18%;
+    --muted-foreground: 220 10% 55%;
+
+    --accent: 185 80% 50%;
+    --accent-foreground: 220 20% 6%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 20%;
+    --input: 220 15% 15%;
+    --ring: 142 76% 50%;
+
+    --radius: 0.75rem;
+
+    /* Custom tokens */
+    --laser-green: 142 76% 50%;
+    --laser-red: 0 72% 55%;
+    --laser-glow-green: 0 0% 0% / 0%, 142 76% 50% / 30%;
+    --laser-glow-red: 0 0% 0% / 0%, 0 72% 55% / 30%;
+    --surface-glass: 220 20% 12% / 80%;
+    --detection-active: 142 76% 50%;
+    --detection-inactive: 0 72% 55%;
+    --warning: 45 93% 47%;
+
+    --sidebar-background: 220 20% 8%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 142 76% 50%;
+    --sidebar-primary-foreground: 220 20% 6%;
+    --sidebar-accent: 220 15% 18%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 220 15% 20%;
+    --sidebar-ring: 142 76% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-card/80 backdrop-blur-xl border border-border/50 rounded-xl;
+  }
+
+  .laser-button {
+    @apply relative overflow-hidden px-6 py-4 rounded-xl font-semibold text-lg
+           transition-all duration-200 active:scale-95
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .laser-button-primary {
+    @apply laser-button bg-primary text-primary-foreground
+           shadow-[0_0_20px_hsl(var(--primary)/0.4)]
+           hover:shadow-[0_0_30px_hsl(var(--primary)/0.6)];
+  }
+
+  .laser-button-secondary {
+    @apply laser-button bg-secondary text-secondary-foreground
+           shadow-[0_0_20px_hsl(var(--secondary)/0.4)]
+           hover:shadow-[0_0_30px_hsl(var(--secondary)/0.6)];
+  }
+
+  .laser-button-ghost {
+    @apply laser-button bg-muted/50 text-foreground border border-border
+           hover:bg-muted hover:border-primary/50;
+  }
+
+  .status-indicator {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full font-mono text-sm font-medium;
+  }
+
+  .status-active {
+    @apply status-indicator bg-primary/20 text-primary border border-primary/30;
+  }
+
+  .status-inactive {
+    @apply status-indicator bg-secondary/20 text-secondary border border-secondary/30;
+  }
+
+  .crosshair-marker {
+    @apply absolute pointer-events-none;
+    width: 60px;
+    height: 60px;
+    transform: translate(-50%, -50%);
+  }
+
+  .crosshair-marker::before,
+  .crosshair-marker::after {
+    content: '';
+    position: absolute;
+    background: hsl(var(--primary));
+    box-shadow: 0 0 10px hsl(var(--primary)), 0 0 20px hsl(var(--primary) / 0.5);
+  }
+
+  .crosshair-marker::before {
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    transform: translateY(-50%);
+  }
+
+  .crosshair-marker::after {
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    transform: translateX(-50%);
+  }
+
+  .crosshair-marker.red::before,
+  .crosshair-marker.red::after {
+    background: hsl(var(--secondary));
+    box-shadow: 0 0 10px hsl(var(--secondary)), 0 0 20px hsl(var(--secondary) / 0.5);
+  }
+
+  .slider-track {
+    @apply h-2 bg-muted rounded-full;
+  }
+
+  .slider-thumb {
+    @apply w-6 h-6 bg-primary rounded-full shadow-lg
+           shadow-primary/40 border-2 border-background;
+  }
+
+  .detection-pulse {
+    animation: pulse-glow 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 20px hsl(var(--primary) / 0.4);
+    }
+    50% {
+      box-shadow: 0 0 40px hsl(var(--primary) / 0.8);
+    }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .settings-panel {
+    @apply glass-panel p-4 space-y-4;
+  }
+
+  .setting-row {
+    @apply flex items-center justify-between gap-4;
+  }
+
+  .setting-label {
+    @apply text-sm font-medium text-muted-foreground;
+  }
+
+  .fps-counter {
+    @apply font-mono text-xs px-2 py-1 rounded bg-muted/50 text-muted-foreground;
+  }
+}
+
+/* PWA safe areas for notch devices */
+@supports (padding: max(0px)) {
+  .safe-area-top {
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+  .safe-area-bottom {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Prevent zoom on iOS */
+input, select, textarea {
+  font-size: 16px !important;
+}
