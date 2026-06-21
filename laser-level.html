@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Laser Level">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="description" content="Laser Level Detector — визначення лазерної лінії через камеру iPhone">
+<title>Laser Level Detector</title>
+
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #00ff88;
+    --accent2: #00cc6a;
+    --red: #ff3355;
+    --green: #00ff88;
+    --warn: #ffaa00;
+    --text: #e8e8f0;
+    --text2: #8888aa;
+    --radius: 12px;
+    --font: -apple-system, 'SF Pro Display', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ── SPLASH ── */
+  #splash {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 24px; z-index: 100;
+    padding: 40px 32px;
+    transition: opacity .4s, visibility .4s;
+  }
+  #splash.hidden { opacity: 0; visibility: hidden; }
+
+  .logo-wrap {
+    width: 96px; height: 96px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #111118 0%, #1a1a2e 100%);
+    border: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    box-shadow: 0 0 40px rgba(0,255,136,.15);
+  }
+  .logo-wrap svg { width: 56px; height: 56px; }
+  .logo-pulse {
+    position: absolute; inset: -6px;
+    border-radius: 28px;
+    border: 1.5px solid rgba(0,255,136,.3);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:.3; transform:scale(1); }
+    50% { opacity:.8; transform:scale(1.04); }
+  }
+
+  .app-title {
+    font-size: 28px; font-weight: 700;
+    letter-spacing: -.5px;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .app-sub { font-size: 15px; color: var(--text2); text-align: center; line-height: 1.5; }
+
+  .feature-list {
+    list-style: none;
+    display: flex; flex-direction: column; gap: 10px;
+    width: 100%; max-width: 320px;
+  }
+  .feature-list li {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 14px; color: var(--text2);
+  }
+  .feature-list li span.dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+  }
+
+  .btn-primary {
+    width: 100%; max-width: 320px;
+    height: 60px;
+    background: var(--accent);
+    color: #000;
+    border: none; border-radius: var(--radius);
+    font-size: 18px; font-weight: 700;
+    cursor: pointer;
+    letter-spacing: .2px;
+    transition: opacity .15s, transform .1s;
+    -webkit-appearance: none;
+  }
+  .btn-primary:active { opacity: .85; transform: scale(.98); }
+
+  .privacy-note {
+    font-size: 12px; color: var(--text2);
+    text-align: center; max-width: 280px;
+    line-height: 1.5;
+  }
+
+  /* ── MAIN APP ── */
+  #app {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    opacity: 0; visibility: hidden;
+    transition: opacity .4s, visibility .4s;
+  }
+  #app.visible { opacity: 1; visibility: visible; }
+
+  /* Camera container */
+  #cam-wrap {
+    position: relative; flex: 1; overflow: hidden;
+    background: #000;
+  }
+
+  #video {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+
+  #overlay {
+    position: absolute; inset: 0;
+    pointer-events: none;
+  }
+
+  /* Crosshair marker */
+  #marker {
+    position: absolute;
+    width: 60px; height: 60px;
+    transform: translate(-50%, -50%);
+    display: none;
+    pointer-events: none;
+  }
+  #marker.visible { display: block; }
+  #marker-h {
+    position: absolute;
+    top: 50%; left: 0; right: 0;
+    height: 2px; margin-top: -1px;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent), 0 0 16px rgba(0,255,136,.5);
+  }
+  #marker-v {
+    position: absolute;
+    left: 50%; top: 0; bottom: 0;
+    width: 2px; margin-left: -1px;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent), 0 0 16px rgba(0,255,136,.5);
+  }
+  #marker-dot {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 10px; height: 10px;
+    transform: translate(-50%,-50%);
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 6px var(--accent);
+  }
+
+  /* Line trace */
+  #line-trace {
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    transform: translateY(-50%);
+    display: none;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(0,255,136,.6) 20%, rgba(0,255,136,.6) 80%, transparent);
+    box-shadow: 0 0 8px rgba(0,255,136,.4);
+  }
+  #line-trace.visible { display: block; }
+
+  /* Scan lines */
+  .scanlines {
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px, transparent 2px,
+      rgba(0,0,0,.06) 2px, rgba(0,0,0,.06) 4px
+    );
+    pointer-events: none;
+    opacity: .5;
+  }
+
+  /* Corner frame */
+  .frame-corner {
+    position: absolute; width: 20px; height: 20px;
+    border-color: rgba(0,255,136,.5); border-style: solid;
+    pointer-events: none;
+  }
+  .fc-tl { top: 16px; left: 16px; border-width: 2px 0 0 2px; }
+  .fc-tr { top: 16px; right: 16px; border-width: 2px 2px 0 0; }
+  .fc-bl { bottom: 80px; left: 16px; border-width: 0 0 2px 2px; }
+  .fc-br { bottom: 80px; right: 16px; border-width: 0 2px 2px 0; }
+
+  /* Status bar at top */
+  #status-bar {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top));
+    display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(to bottom, rgba(0,0,0,.7) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #beam-indicator {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 13px; font-weight: 600;
+    background: rgba(0,0,0,.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    transition: all .3s;
+  }
+  #beam-indicator.found {
+    background: rgba(0,255,136,.15);
+    border-color: rgba(0,255,136,.4);
+    color: var(--accent);
+  }
+  #beam-indicator.not-found { color: var(--text2); }
+
+  #beam-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text2);
+    transition: background .3s;
+  }
+  #beam-indicator.found #beam-dot {
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+    animation: blink .8s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  #fps-counter {
+    margin-left: auto;
+    font-size: 11px; color: var(--text2);
+    font-variant-numeric: tabular-nums;
+    background: rgba(0,0,0,.4);
+    padding: 4px 8px; border-radius: 8px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  #y-value {
+    font-size: 11px; color: var(--text2);
+    background: rgba(0,0,0,.4);
+    padding: 4px 8px; border-radius: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── BOTTOM PANEL ── */
+  #bottom-panel {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.85) 0%, transparent 100%);
+    padding: 16px 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    z-index: 10;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  /* Sensitivity slider */
+  .slider-row {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .slider-label { font-size: 12px; color: var(--text2); min-width: 84px; }
+  input[type=range] {
+    flex: 1; height: 4px;
+    -webkit-appearance: none; appearance: none;
+    background: var(--border); border-radius: 2px; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px rgba(0,255,136,.5);
+    cursor: pointer;
+  }
+  .slider-val { font-size: 12px; color: var(--accent); min-width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Icon buttons row */
+  .btn-row { display: flex; gap: 8px; }
+
+  .icon-btn {
+    flex: 1; height: 48px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text2);
+    font-size: 11px; font-weight: 600;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 2px;
+    cursor: pointer; transition: all .15s;
+    -webkit-appearance: none;
+  }
+  .icon-btn:active { background: rgba(255,255,255,.12); }
+  .icon-btn.active {
+    background: rgba(0,255,136,.12);
+    border-color: rgba(0,255,136,.4);
+    color: var(--accent);
+  }
+  .icon-btn svg { width: 20px; height: 20px; }
+
+  /* ── SETTINGS PANEL ── */
+  #settings-panel {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 50;
+    display: flex; align-items: flex-end;
+    opacity: 0; visibility: hidden;
+    transition: opacity .3s, visibility .3s;
+  }
+  #settings-panel.open { opacity: 1; visibility: visible; }
+
+  #settings-sheet {
+    width: 100%;
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    padding: 20px 20px;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+    max-height: 80vh; overflow-y: auto;
+    transform: translateY(100%);
+    transition: transform .35s cubic-bezier(.25,.46,.45,.94);
+  }
+  #settings-panel.open #settings-sheet { transform: translateY(0); }
+
+  .sheet-handle {
+    width: 40px; height: 4px; border-radius: 2px;
+    background: var(--border); margin: 0 auto 20px;
+  }
+  .sheet-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+
+  .setting-group { margin-bottom: 20px; }
+  .setting-group-label {
+    font-size: 11px; font-weight: 600; color: var(--text2);
+    text-transform: uppercase; letter-spacing: .8px;
+    margin-bottom: 10px;
+  }
+
+  .seg-control {
+    display: flex; gap: 6px;
+    background: var(--bg); border-radius: 10px; padding: 4px;
+  }
+  .seg-btn {
+    flex: 1; height: 36px;
+    background: transparent; border: none;
+    border-radius: 7px;
+    color: var(--text2); font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all .2s;
+    -webkit-appearance: none;
+  }
+  .seg-btn.active { background: var(--surface2); color: var(--text); }
+
+  .toggle-row {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label { font-size: 15px; }
+  .toggle-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  .toggle {
+    position: relative; width: 48px; height: 28px;
+    cursor: pointer;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-track {
+    position: absolute; inset: 0;
+    background: var(--border); border-radius: 14px;
+    transition: background .25s;
+  }
+  .toggle input:checked ~ .toggle-track { background: var(--accent); }
+  .toggle-thumb {
+    position: absolute; top: 3px; left: 3px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #fff;
+    transition: transform .25s;
+    box-shadow: 0 1px 4px rgba(0,0,0,.4);
+  }
+  .toggle input:checked ~ .toggle-thumb { transform: translateX(20px); }
+
+  /* ── CALIBRATION ── */
+  #calib-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.8);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 60;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 20px; padding: 32px;
+    opacity: 0; visibility: hidden;
+    transition: opacity .3s, visibility .3s;
+  }
+  #calib-overlay.open { opacity: 1; visibility: visible; }
+
+  .calib-title { font-size: 22px; font-weight: 700; text-align: center; }
+  .calib-sub { font-size: 15px; color: var(--text2); text-align: center; line-height: 1.6; }
+
+  #calib-ring {
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    animation: spin 1s linear infinite;
+    display: none;
+  }
+  #calib-ring.spinning { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #calib-progress {
+    width: 240px; height: 4px;
+    background: var(--border); border-radius: 2px; overflow: hidden;
+    display: none;
+  }
+  #calib-progress.visible { display: block; }
+  #calib-bar {
+    height: 100%; background: var(--accent);
+    border-radius: 2px; width: 0%;
+    transition: width .1s;
+  }
+
+  .btn-secondary {
+    height: 52px; padding: 0 32px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text);
+    font-size: 16px; font-weight: 600; cursor: pointer;
+    -webkit-appearance: none;
+    transition: opacity .15s;
+  }
+  .btn-secondary:active { opacity: .7; }
+
+  /* Install prompt */
+  #install-banner {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    display: flex; align-items: center; gap: 12px;
+    z-index: 200;
+    transform: translateY(100%);
+    transition: transform .35s ease;
+  }
+  #install-banner.show { transform: translateY(0); }
+  #install-banner .install-icon { font-size: 28px; }
+  #install-banner .install-text { flex: 1; font-size: 13px; color: var(--text2); line-height: 1.4; }
+  #install-banner .install-text strong { color: var(--text); display: block; margin-bottom: 2px; }
+  #install-dismiss {
+    background: none; border: none; color: var(--text2);
+    font-size: 20px; cursor: pointer; padding: 4px;
+  }
+
+  /* ── SOUND MODULE ── */
+  /* Sound toggle button — placed in btn-row, identical size to other icon-btns */
+  #btn-sound.active {
+    background: rgba(0,255,136,.12);
+    border-color: rgba(0,255,136,.4);
+    color: var(--accent);
+  }
+  #btn-sound.state-center { color: var(--accent);  border-color: rgba(0,255,136,.5); }
+  #btn-sound.state-above  { color: #ff6688;         border-color: rgba(255,60,100,.4); }
+  #btn-sound.state-below  { color: #ffaa00;         border-color: rgba(255,170,0,.4);  }
+
+  /* Sound status chip — sits in #status-bar */
+  #sound-chip {
+    display: none;                       /* hidden while sound is off */
+    align-items: center; gap: 5px;
+    padding: 4px 9px;
+    border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+    background: rgba(0,0,0,.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    transition: background .25s, border-color .25s, color .25s;
+    pointer-events: none;
+  }
+  #sound-chip.visible { display: flex; }
+
+  /* State colours */
+  #sound-chip.sc-center {
+    background: rgba(0,255,136,.15);
+    border-color: rgba(0,255,136,.45);
+    color: var(--accent);
+  }
+  #sound-chip.sc-above {
+    background: rgba(255,50,80,.15);
+    border-color: rgba(255,50,80,.45);
+    color: #ff6688;
+  }
+  #sound-chip.sc-below {
+    background: rgba(255,160,0,.15);
+    border-color: rgba(255,160,0,.45);
+    color: #ffcc44;
+  }
+  #sound-chip.sc-silent {
+    background: rgba(255,255,255,.05);
+    border-color: var(--border);
+    color: var(--text2);
+  }
+
+  /* Animated waveform bars inside the chip */
+  .sc-bars {
+    display: flex; align-items: center; gap: 2px; height: 14px;
+  }
+  .sc-bar {
+    width: 3px; border-radius: 2px;
+    background: currentColor; opacity: .85;
+    transform-origin: bottom;
+  }
+  /* Each bar has its own animation; JS will start/stop via class */
+  .sc-bars.anim-fast .sc-bar { animation: barBounce .15s ease-in-out infinite alternate; }
+  .sc-bars.anim-slow .sc-bar { animation: barBounce .5s  ease-in-out infinite alternate; }
+  .sc-bars.anim-steady .sc-bar { animation: barBounce .4s  ease-in-out infinite alternate; }
+  .sc-bars.anim-none .sc-bar  { animation: none; height: 5px; }
+
+  .sc-bar:nth-child(1) { height: 6px;  animation-delay: 0s; }
+  .sc-bar:nth-child(2) { height: 10px; animation-delay: .05s; }
+  .sc-bar:nth-child(3) { height: 14px; animation-delay: .1s; }
+  .sc-bar:nth-child(4) { height: 10px; animation-delay: .15s; }
+  .sc-bar:nth-child(5) { height: 6px;  animation-delay: .2s; }
+
+  @keyframes barBounce {
+    from { transform: scaleY(.35); }
+    to   { transform: scaleY(1); }
+  }
+
+  /* Volume slider in settings */
+  #vol-row { display: flex; align-items: center; gap: 10px; }
+  #vol-label { font-size: 12px; color: var(--text2); min-width: 84px; }
+  #vol-val   { font-size: 12px; color: var(--accent); min-width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+<!-- ── SPLASH ── -->
+<div id="splash">
+  <div class="logo-wrap">
+    <div class="logo-pulse"></div>
+    <svg viewBox="0 0 56 56" fill="none">
+      <circle cx="28" cy="28" r="10" stroke="#00ff88" stroke-width="2"/>
+      <line x1="0" y1="28" x2="18" y2="28" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+      <line x1="38" y1="28" x2="56" y2="28" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+      <line x1="28" y1="0" x2="28" y2="18" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+      <line x1="28" y1="38" x2="28" y2="56" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="28" cy="28" r="3" fill="#00ff88"/>
+      <path d="M 4 28 Q 14 10 28 8 Q 42 6 52 28 Q 42 50 28 48 Q 14 46 4 28 Z" stroke="#00ff88" stroke-width=".5" stroke-dasharray="3 3" fill="none" opacity=".3"/>
+    </svg>
+  </div>
+
+  <div>
+    <div class="app-title">Laser Level</div>
+  </div>
+  <div class="app-sub">Приймач лазерного рівня у вашому iPhone. Наведіть камеру — програма знайде промінь.</div>
+
+  <ul class="feature-list">
+    <li><span class="dot"></span>Реальний час: аналіз кожного кадру</li>
+    <li><span class="dot"></span>Червоний та зелений лазер</li>
+    <li><span class="dot"></span>Автокалібрування фону</li>
+    <li><span class="dot"></span>Вся обробка — на пристрої</li>
+  </ul>
+
+  <button class="btn-primary" id="start-btn">📷 Увімкнути камеру</button>
+
+  <p class="privacy-note">🔒 Дані не покидають ваш пристрій. Камера використовується тільки локально.</p>
+</div>
+
+<!-- ── MAIN APP ── -->
+<div id="app">
+  <div id="cam-wrap">
+    <video id="video" playsinline autoplay muted></video>
+    <canvas id="overlay"></canvas>
+
+    <div class="scanlines"></div>
+
+    <!-- Corner frame decorations -->
+    <div class="frame-corner fc-tl"></div>
+    <div class="frame-corner fc-tr"></div>
+    <div class="frame-corner fc-bl"></div>
+    <div class="frame-corner fc-br"></div>
+
+    <!-- Marker -->
+    <div id="marker">
+      <div id="marker-h"></div>
+      <div id="marker-v"></div>
+      <div id="marker-dot"></div>
+    </div>
+
+    <!-- Line trace -->
+    <div id="line-trace"></div>
+
+    <!-- Status bar -->
+    <div id="status-bar">
+      <div id="beam-indicator" class="not-found">
+        <div id="beam-dot"></div>
+        <span id="beam-text">Шукаю промінь…</span>
+      </div>
+      <div id="y-value">Y: —</div>
+      <!-- Sound state chip -->
+      <div id="sound-chip" class="sc-silent">
+        <div class="sc-bars anim-none">
+          <div class="sc-bar"></div><div class="sc-bar"></div>
+          <div class="sc-bar"></div><div class="sc-bar"></div>
+          <div class="sc-bar"></div>
+        </div>
+        <span id="sound-chip-label">—</span>
+      </div>
+      <div id="fps-counter">— FPS</div>
+    </div>
+
+    <!-- Bottom panel -->
+    <div id="bottom-panel">
+      <div class="slider-row">
+        <span class="slider-label">Чутливість</span>
+        <input type="range" id="sensitivity" min="1" max="100" value="55">
+        <span class="slider-val" id="sens-val">55</span>
+      </div>
+      <div class="btn-row">
+        <button class="icon-btn" id="btn-sound" title="Звук">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          </svg>
+          Звук
+        </button>
+        <button class="icon-btn" id="btn-mirror" title="Дзеркало">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3v18M4 7l8-4 8 4M4 17l8 4 8-4"/>
+          </svg>
+          Дзеркало
+        </button>
+        <button class="icon-btn" id="btn-rotate" title="Поворот">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 4v6h6M23 20v-6h-6"/>
+            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+          </svg>
+          Поворот
+        </button>
+        <button class="icon-btn" id="btn-calib" title="Калібрування">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+          </svg>
+          Калібр.
+        </button>
+        <button class="icon-btn" id="btn-settings" title="Налаштування">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          Опції
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SETTINGS PANEL ── -->
+<div id="settings-panel">
+  <div id="settings-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Налаштування</div>
+
+    <div class="setting-group">
+      <div class="setting-group-label">Режим кольору</div>
+      <div class="seg-control">
+        <button class="seg-btn" data-color="red">🔴 Червоний</button>
+        <button class="seg-btn active" data-color="auto">⚡ Авто</button>
+        <button class="seg-btn" data-color="green">🟢 Зелений</button>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-group-label">Фільтри</div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Згладжування</div>
+          <div class="toggle-sub">Усереднення позиції</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="tog-smooth" checked>
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Фільтр мерехтіння</div>
+          <div class="toggle-sub">50/60 Гц подавлення</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="tog-flicker" checked>
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Показувати лінію</div>
+          <div class="toggle-sub">Trace всього рядка</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="tog-trace" checked>
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-group-label">Відображення</div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Гравікація сітка</div>
+          <div class="toggle-sub">Rule-of-thirds overlay</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="tog-grid">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-group-label">Smoothing strength</div>
+      <div class="slider-row">
+        <span class="slider-label">Сила</span>
+        <input type="range" id="smooth-str" min="1" max="20" value="8">
+        <span class="slider-val" id="smooth-val">8</span>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-group-label">Звуковий супровід</div>
+      <div class="slider-row" id="vol-row">
+        <span class="slider-label" id="vol-label">Гучність</span>
+        <input type="range" id="vol-slider" min="0" max="100" value="70">
+        <span class="slider-val" id="vol-val">70</span>
+      </div>
+      <div class="toggle-row" style="margin-top:4px">
+        <div>
+          <div class="toggle-label">Мертва зона</div>
+          <div class="toggle-sub">Центр: суцільний тон</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="tog-deadzone" checked>
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+      <div class="slider-row" id="deadzone-row" style="margin-top:4px">
+        <span class="slider-label">Ширина зони</span>
+        <input type="range" id="deadzone-slider" min="1" max="30" value="5" step="1">
+        <span class="slider-val"><span id="deadzone-val">5</span>%</span>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="close-settings" style="margin-top:8px">Готово</button>
+  </div>
+</div>
+
+<!-- ── CALIBRATION ── -->
+<div id="calib-overlay">
+  <div class="calib-title" id="calib-title">Калібрування фону</div>
+  <div class="calib-sub" id="calib-sub">Направте камеру на поверхню БЕЗ лазера і натисніть «Почати»</div>
+  <div id="calib-ring"></div>
+  <div id="calib-progress"><div id="calib-bar"></div></div>
+  <button class="btn-primary" id="calib-start-btn" style="max-width:240px">Почати</button>
+  <button class="btn-secondary" id="calib-cancel-btn">Скасувати</button>
+</div>
+
+<!-- ── INSTALL BANNER ── -->
+<div id="install-banner">
+  <span class="install-icon">📲</span>
+  <div class="install-text">
+    <strong>Додати на головний екран</strong>
+    Натисніть <strong>Поділитись</strong> → «Додати на екран "Додатки"»
+  </div>
+  <button id="install-dismiss">✕</button>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// SERVICE WORKER (inline via Blob)
+// ══════════════════════════════════════════════
+const SW_CODE = `
+const CACHE = 'laser-level-v2';
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(['./']))
+  );
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(ks =>
+    Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))
+  ));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(
+    caches.match(e.request).then(r => r || fetch(e.request).catch(()=>new Response('Offline',{status:503})))
+  );
+});
+`;
+
+if ('serviceWorker' in navigator) {
+  const blob = new Blob([SW_CODE], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl, { scope: './' })
+    .catch(() => {});
+}
+
+// ══════════════════════════════════════════════
+// MANIFEST (inline)
+// ══════════════════════════════════════════════
+const MANIFEST = {
+  name: "Laser Level Detector",
+  short_name: "LaserLevel",
+  description: "Визначення лазерного рівня через камеру iPhone",
+  start_url: "./",
+  display: "standalone",
+  background_color: "#0a0a0f",
+  theme_color: "#0a0a0f",
+  orientation: "any",
+  icons: [
+    { src: generateIcon(192), sizes: "192x192", type: "image/png" },
+    { src: generateIcon(512), sizes: "512x512", type: "image/png" },
+  ]
+};
+
+function generateIcon(size) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, size, size);
+  const cx = size / 2, cy = size / 2, r = size * .18;
+  ctx.strokeStyle = '#00ff88'; ctx.lineWidth = size * .035;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(size*.08, cy); ctx.lineTo(cx - r, cy);
+  ctx.moveTo(cx + r, cy); ctx.lineTo(size*.92, cy);
+  ctx.moveTo(cx, size*.08); ctx.lineTo(cx, cy - r);
+  ctx.moveTo(cx, cy + r); ctx.lineTo(cx, size*.92);
+  ctx.stroke();
+  ctx.fillStyle = '#00ff88';
+  ctx.beginPath(); ctx.arc(cx, cy, size*.05, 0, Math.PI * 2); ctx.fill();
+  return canvas.toDataURL('image/png');
+}
+
+const manifestBlob = new Blob([JSON.stringify(MANIFEST)], { type: 'application/json' });
+const manifestUrl = URL.createObjectURL(manifestBlob);
+const mlink = document.createElement('link');
+mlink.rel = 'manifest'; mlink.href = manifestUrl;
+document.head.appendChild(mlink);
+
+// Apple touch icon
+const touchIcon = document.createElement('link');
+touchIcon.rel = 'apple-touch-icon';
+touchIcon.href = generateIcon(180);
+document.head.appendChild(touchIcon);
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+const state = {
+  stream: null,
+  sensitivity: 55,
+  colorMode: 'auto',     // 'red' | 'green' | 'auto'
+  smoothing: true,
+  flickerFilter: true,
+  showTrace: true,
+  showGrid: false,
+  mirrored: false,
+  rotated: false,
+  smoothStr: 8,
+
+  // Detection
+  beamFound: false,
+  beamY: 0,
+  beamX: 0,
+  smoothY: 0,
+  smoothX: 0,
+
+  // FPS
+  fpsFrames: 0,
+  fpsLast: performance.now(),
+  fps: 0,
+
+  // Calibration
+  calibrated: false,
+  bgProfile: null,   // Float32Array per-column background brightness
+  calibrating: false,
+
+  // Anti-flicker history
+  yHistory: [],
+  maxHistory: 6,
+};
+
+// ══════════════════════════════════════════════
+// ELEMENTS
+// ══════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const splash = $('splash'), app = $('app');
+const video = $('video'), overlay = $('overlay');
+const ctx2d = overlay.getContext('2d', { willReadFrequently: true });
+const marker = $('marker'), lineTrace = $('line-trace');
+const beamIndicator = $('beam-indicator'), beamText = $('beam-text');
+const fpsCounter = $('fps-counter'), yValue = $('y-value');
+const sensSlider = $('sensitivity'), sensVal = $('sens-val');
+const settingsPanel = $('settings-panel');
+const calibOverlay = $('calib-overlay');
+const installBanner = $('install-banner');
+
+// ══════════════════════════════════════════════
+// CAMERA START
+// ══════════════════════════════════════════════
+$('start-btn').addEventListener('click', async () => {
+  try {
+    const constraints = {
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 60, min: 30 },
+      }
+    };
+    state.stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = state.stream;
+    await video.play();
+
+    splash.classList.add('hidden');
+    app.classList.add('visible');
+
+    requestAnimationFrame(loop);
+    showInstallBanner();
+  } catch (err) {
+    alert('Не вдалося отримати доступ до камери.\n\n' + err.message);
+  }
+});
+
+// ══════════════════════════════════════════════
+// MAIN ANALYSIS LOOP
+// ══════════════════════════════════════════════
+function loop() {
+  if (!state.stream) return;
+  requestAnimationFrame(loop);
+
+  // FPS
+  state.fpsFrames++;
+  const now = performance.now();
+  if (now - state.fpsLast >= 1000) {
+    state.fps = Math.round(state.fpsFrames * 1000 / (now - state.fpsLast));
+    state.fpsFrames = 0;
+    state.fpsLast = now;
+    fpsCounter.textContent = state.fps + ' FPS';
+  }
+
+  if (video.readyState < 2) return;
+
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) return;
+
+  // Sync canvas
+  if (overlay.width !== vw || overlay.height !== vh) {
+    overlay.width = vw; overlay.height = vh;
+    overlay.style.width = '100%'; overlay.style.height = '100%';
+  }
+
+  // Draw video
+  ctx2d.save();
+  if (state.mirrored) {
+    ctx2d.translate(vw, 0); ctx2d.scale(-1, 1);
+  }
+  if (state.rotated) {
+    ctx2d.translate(vw/2, vh/2);
+    ctx2d.rotate(Math.PI);
+    ctx2d.translate(-vw/2, -vh/2);
+  }
+  ctx2d.drawImage(video, 0, 0);
+  ctx2d.restore();
+
+  // Get pixels
+  let imageData;
+  try {
+    imageData = ctx2d.getImageData(0, 0, vw, vh);
+  } catch(e) { return; }
+
+  const data = imageData.data;
+
+  // Detect beam
+  const result = detectBeam(data, vw, vh);
+
+  // Grid
+  if (state.showGrid) drawGrid(vw, vh);
+
+  if (result.found) {
+    state.beamFound = true;
+    const rawY = result.y;
+    const rawX = result.x;
+
+    // Flicker filter: median of recent Y values
+    if (state.flickerFilter) {
+      state.yHistory.push(rawY);
+      if (state.yHistory.length > state.maxHistory) state.yHistory.shift();
+      const sorted = [...state.yHistory].sort((a,b)=>a-b);
+      const medY = sorted[Math.floor(sorted.length/2)];
+      result.y = medY;
+    }
+
+    // Smoothing
+    if (state.smoothing) {
+      const alpha = 1 / state.smoothStr;
+      state.smoothY += (result.y - state.smoothY) * alpha;
+      state.smoothX += (result.x - state.smoothX) * alpha;
+    } else {
+      state.smoothY = result.y;
+      state.smoothX = result.x;
+    }
+
+    // ── Audio: pass smoothed Y and video height ──
+    audio.update(true, state.smoothY, vh);
+    audio.updateChip();
+
+    // Draw line highlight
+    highlightLine(data, vw, vh, Math.round(state.smoothY), result.color);
+    ctx2d.putImageData(imageData, 0, 0);
+
+    // Update UI
+    updateMarker(state.smoothX, state.smoothY, vw, vh);
+    updateLineTrace(state.smoothY, vh);
+    setBeamStatus(true);
+    const pct = Math.round((state.smoothY / vh) * 100);
+    yValue.textContent = `Y: ${pct}%`;
+  } else {
+    state.beamFound = false;
+    state.yHistory = [];
+    ctx2d.putImageData(imageData, 0, 0);
+    marker.classList.remove('visible');
+    lineTrace.classList.remove('visible');
+    setBeamStatus(false);
+    yValue.textContent = 'Y: —';
+
+    // ── Audio: no beam → silence ─────────────────
+    audio.update(false, 0, vh);
+    audio.updateChip();
+  }
+}
+
+// ══════════════════════════════════════════════
+// BEAM DETECTION
+// ══════════════════════════════════════════════
+function detectBeam(data, w, h) {
+  const thresh = state.sensitivity;
+  const minBright = Math.round(255 * (thresh / 100) * 0.55 + 60);
+  // Adaptive threshold based on color mode
+  const cm = state.colorMode;
+
+  // Per-row score: sum of beam-like pixels
+  const rowScores = new Float32Array(h);
+  const rowCounts = new Int32Array(h);
+  const rowColors = new Array(h).fill('none');
+
+  for (let y = 0; y < h; y++) {
+    let score = 0, count = 0, colorVote = { red: 0, green: 0 };
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4;
+      const r = data[idx], g = data[idx+1], b = data[idx+2];
+      const brightness = (r * .299 + g * .587 + b * .114);
+
+      if (brightness < minBright) continue;
+
+      let beamScore = 0;
+      if (cm === 'red' || cm === 'auto') {
+        // Red laser: high R, low G, low B
+        const redScore = r - Math.max(g, b) * .7;
+        if (redScore > 60) { beamScore = Math.max(beamScore, redScore); colorVote.red++; }
+      }
+      if (cm === 'green' || cm === 'auto') {
+        // Green laser: high G, low R, low B
+        const greenScore = g - Math.max(r, b) * .7;
+        if (greenScore > 60) { beamScore = Math.max(beamScore, greenScore); colorVote.green++; }
+      }
+      if (cm === 'auto') {
+        // White/bright spot (overexposed laser)
+        if (r > 220 && g > 220 && b > 220) beamScore = Math.max(beamScore, brightness * .5);
+      }
+
+      if (beamScore > 0) { score += beamScore; count++; }
+    }
+
+    rowScores[y] = score;
+    rowCounts[y] = count;
+    rowColors[y] = (colorVote.green > colorVote.red) ? 'green' : 'red';
+  }
+
+  // Background subtraction if calibrated
+  // (bgProfile stores per-column baseline, but for row detection we use avg)
+
+  // Find best row: highest score, but require minimum width coverage
+  const minCoverage = Math.max(w * 0.08, 20); // at least 8% width
+  let bestRow = -1, bestScore = 0;
+
+  for (let y = 0; y < h; y++) {
+    if (rowCounts[y] < minCoverage) continue;
+    const s = rowScores[y] / Math.max(rowCounts[y], 1);
+    if (s > bestScore) { bestScore = s; bestRow = y; }
+  }
+
+  if (bestRow < 0 || bestScore < 40) return { found: false };
+
+  // Calibration background check
+  if (state.calibrated && state.bgProfile) {
+    const bg = state.bgProfile[bestRow] || 0;
+    if (bestScore < bg * 1.3) return { found: false };
+  }
+
+  // Find horizontal center of mass on that row
+  let sumX = 0, sumW = 0;
+  for (let x = 0; x < w; x++) {
+    const idx = (bestRow * w + x) * 4;
+    const r = data[idx], g = data[idx+1], b = data[idx+2];
+    let s = 0;
+    if (cm === 'red' || cm === 'auto') s = Math.max(s, r - Math.max(g,b)*.5);
+    if (cm === 'green' || cm === 'auto') s = Math.max(s, g - Math.max(r,b)*.5);
+    if (s > 40) { sumX += x * s; sumW += s; }
+  }
+  const centerX = sumW > 0 ? sumX / sumW : w / 2;
+
+  return {
+    found: true,
+    y: bestRow,
+    x: centerX,
+    score: bestScore,
+    color: rowColors[bestRow],
+  };
+}
+
+// ══════════════════════════════════════════════
+// HIGHLIGHT LINE IN FRAME
+// ══════════════════════════════════════════════
+function highlightLine(data, w, h, y, color) {
+  if (y < 0 || y >= h) return;
+  const accentR = color === 'green' ? 0 : 255;
+  const accentG = color === 'green' ? 255 : 50;
+  const accentB = 80;
+  // Soften highlight ±2 rows
+  for (let dy = -2; dy <= 2; dy++) {
+    const ry = y + dy;
+    if (ry < 0 || ry >= h) continue;
+    const alpha = dy === 0 ? .6 : .2;
+    for (let x = 0; x < w; x++) {
+      const idx = (ry * w + x) * 4;
+      data[idx]   = Math.min(255, data[idx]   * (1-alpha) + accentR * alpha);
+      data[idx+1] = Math.min(255, data[idx+1] * (1-alpha) + accentG * alpha);
+      data[idx+2] = Math.min(255, data[idx+2] * (1-alpha) + accentB * alpha);
+    }
+  }
+}
+
+// ══════════════════════════════════════════════
+// GRID OVERLAY
+// ══════════════════════════════════════════════
+function drawGrid(w, h) {
+  ctx2d.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx2d.lineWidth = 1;
+  for (let i = 1; i <= 2; i++) {
+    ctx2d.beginPath();
+    ctx2d.moveTo(w * i/3, 0); ctx2d.lineTo(w * i/3, h);
+    ctx2d.moveTo(0, h * i/3); ctx2d.lineTo(w, h * i/3);
+    ctx2d.stroke();
+  }
+}
+
+// ══════════════════════════════════════════════
+// UI UPDATES
+// ══════════════════════════════════════════════
+function updateMarker(vx, vy, vw, vh) {
+  const camWrap = document.getElementById('cam-wrap');
+  const cw = camWrap.clientWidth, ch = camWrap.clientHeight;
+
+  // Map video coords to display coords
+  const scaleX = cw / vw, scaleY = ch / vh;
+  const scale = Math.max(scaleX, scaleY); // object-fit: cover
+  const offsetX = (cw - vw * scale) / 2;
+  const offsetY = (ch - vh * scale) / 2;
+
+  const px = vx * scale + offsetX;
+  const py = vy * scale + offsetY;
+
+  marker.style.left = px + 'px';
+  marker.style.top = py + 'px';
+  marker.classList.add('visible');
+}
+
+function updateLineTrace(vy, vh) {
+  if (!state.showTrace) { lineTrace.classList.remove('visible'); return; }
+  const camWrap = document.getElementById('cam-wrap');
+  const ch = camWrap.clientHeight;
+  const scaleY = ch / vh;
+  const vw = video.videoWidth;
+  const cw = camWrap.clientWidth;
+  const scale = Math.max(cw / vw, ch / vh);
+  const offsetY = (ch - vh * scale) / 2;
+  const py = vy * scale + offsetY;
+  lineTrace.style.top = py + 'px';
+  lineTrace.classList.add('visible');
+}
+
+function setBeamStatus(found) {
+  beamIndicator.className = found ? 'found' : 'not-found';
+  beamText.textContent = found ? 'Промінь знайдено' : 'Шукаю промінь…';
+}
+
+// ══════════════════════════════════════════════
+// CALIBRATION
+// ══════════════════════════════════════════════
+function startCalibration() {
+  calibOverlay.classList.add('open');
+  $('calib-start-btn').style.display = 'block';
+  $('calib-ring').classList.remove('spinning');
+  $('calib-progress').classList.remove('visible');
+  $('calib-title').textContent = 'Калібрування фону';
+  $('calib-sub').textContent = 'Направте камеру на поверхню БЕЗ лазера і натисніть «Почати»';
+}
+
+$('calib-start-btn').addEventListener('click', () => {
+  $('calib-start-btn').style.display = 'none';
+  $('calib-ring').classList.add('spinning');
+  $('calib-progress').classList.add('visible');
+  $('calib-title').textContent = 'Збираю дані…';
+  $('calib-sub').textContent = 'Не рухайте камеру';
+  state.calibrating = true;
+
+  const frames = 30;
+  let collected = 0;
+  const h = video.videoHeight;
+  const rowSums = new Float32Array(h);
+
+  function collectFrame() {
+    if (!state.calibrating) return;
+    collected++;
+    $('calib-bar').style.width = (collected / frames * 100) + '%';
+
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (vw && vh) {
+      try {
+        const id = ctx2d.getImageData(0, 0, vw, vh);
+        const data = id.data;
+        for (let y = 0; y < vh; y++) {
+          let s = 0;
+          for (let x = 0; x < vw; x++) {
+            const idx = (y * vw + x) * 4;
+            s += data[idx] * .299 + data[idx+1] * .587 + data[idx+2] * .114;
+          }
+          rowSums[y] += s / vw;
+        }
+      } catch(e) {}
+    }
+
+    if (collected < frames) {
+      setTimeout(collectFrame, 33);
+    } else {
+      state.bgProfile = new Float32Array(h);
+      for (let y = 0; y < h; y++) state.bgProfile[y] = rowSums[y] / frames;
+      state.calibrated = true;
+      state.calibrating = false;
+
+      $('calib-ring').classList.remove('spinning');
+      $('calib-title').textContent = '✅ Готово!';
+      $('calib-sub').textContent = 'Фон збережено. Тепер наведіть на лазер.';
+      setTimeout(() => calibOverlay.classList.remove('open'), 1500);
+    }
+  }
+  collectFrame();
+});
+
+$('calib-cancel-btn').addEventListener('click', () => {
+  state.calibrating = false;
+  calibOverlay.classList.remove('open');
+});
+
+// ══════════════════════════════════════════════
+// CONTROLS
+// ══════════════════════════════════════════════
+sensSlider.addEventListener('input', e => {
+  state.sensitivity = +e.target.value;
+  sensVal.textContent = e.target.value;
+});
+
+$('smooth-str').addEventListener('input', e => {
+  state.smoothStr = Math.max(1, +e.target.value);
+  $('smooth-val').textContent = e.target.value;
+});
+
+$('tog-smooth').addEventListener('change', e => state.smoothing = e.target.checked);
+$('tog-flicker').addEventListener('change', e => state.flickerFilter = e.target.checked);
+$('tog-trace').addEventListener('change', e => { state.showTrace = e.target.checked; if(!e.target.checked) lineTrace.classList.remove('visible'); });
+$('tog-grid').addEventListener('change', e => state.showGrid = e.target.checked);
+
+document.querySelectorAll('.seg-btn[data-color]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.seg-btn[data-color]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.colorMode = btn.dataset.color;
+  });
+});
+
+// Mirror
+$('btn-mirror').addEventListener('click', () => {
+  state.mirrored = !state.mirrored;
+  $('btn-mirror').classList.toggle('active', state.mirrored);
+});
+
+// Rotate
+$('btn-rotate').addEventListener('click', () => {
+  state.rotated = !state.rotated;
+  $('btn-rotate').classList.toggle('active', state.rotated);
+});
+
+// Calibrate
+$('btn-calib').addEventListener('click', startCalibration);
+
+// Settings
+$('btn-settings').addEventListener('click', () => settingsPanel.classList.add('open'));
+$('close-settings').addEventListener('click', () => settingsPanel.classList.remove('open'));
+settingsPanel.addEventListener('click', e => { if (e.target === settingsPanel) settingsPanel.classList.remove('open'); });
+
+// Install banner
+function showInstallBanner() {
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone;
+  if (isIOS && !isStandalone) {
+    setTimeout(() => installBanner.classList.add('show'), 3000);
+  }
+}
+$('install-dismiss').addEventListener('click', () => installBanner.classList.remove('show'));
+
+// ══════════════════════════════════════════════
+// AUDIO ENGINE — Web Audio API
+// ══════════════════════════════════════════════
+const audio = (() => {
+  // ── Config constants ──────────────────────────
+  const FREQ_ABOVE   = 2500;   // Hz — промінь вище центру (телефон низько)
+  const FREQ_CENTER  = 1500;   // Hz — ідеальний рівень
+  const FREQ_BELOW   =  600;   // Hz — промінь нижче центру (телефон високо)
+
+  const PULSE_ABOVE_ON  =  75;  // ms on
+  const PULSE_ABOVE_OFF =  75;  // ms off
+  const PULSE_BELOW_ON  = 250;  // ms on
+  const PULSE_BELOW_OFF = 250;  // ms off
+
+  const DEAD_ZONE = 0.05;       // ±5% of video height — default, overridden by setDeadzonePct()
+
+  // ── State ─────────────────────────────────────
+  let actx = null;          // AudioContext (lazy init — iOS требує user gesture)
+  let osc  = null;          // OscillatorNode
+  let gain = null;          // GainNode (master volume)
+  let pulseGain = null;     // GainNode for on/off pulsing
+  let enabled  = false;     // user toggled sound on/off
+  let volume   = 0.70;      // 0..1
+  let useDeadzone = true;
+  let deadzonePct = 5;      // 0..30, percentage of video height (e.g. 5 = ±5%)
+
+  let currentState = 'silent'; // 'silent'|'above'|'below'|'center'
+  let pulseTimer   = null;
+  let pulsePhase   = 'on';     // 'on' | 'off'
+
+  // ── Boot AudioContext on first enable ─────────
+  function initCtx() {
+    if (actx) return;
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Oscillator  →  pulseGain  →  gain  →  destination
+    osc = actx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.value = FREQ_CENTER;
+
+    // Soft attack/release shaping — biquad filter tames the harshness
+    // of raw square wave so it doesn't split eardrums at 2.5kHz
+    const bpf = actx.createBiquadFilter();
+    bpf.type = 'bandpass';
+    bpf.frequency.value = 1200;
+    bpf.Q.value = 0.5;
+
+    pulseGain = actx.createGain();
+    pulseGain.gain.value = 0;  // start silent
+
+    gain = actx.createGain();
+    gain.gain.value = volume;
+
+    osc.connect(bpf);
+    bpf.connect(pulseGain);
+    pulseGain.connect(gain);
+    gain.connect(actx.destination);
+
+    osc.start();
+  }
+
+  // ── Resume context (iOS Safari suspends it) ───
+  function resume() {
+    if (actx && actx.state === 'suspended') actx.resume();
+  }
+
+  // ── Instant gain ramp (click-free) ────────────
+  function setGain(value, rampMs = 8) {
+    if (!pulseGain) return;
+    const t = actx.currentTime;
+    pulseGain.gain.cancelScheduledValues(t);
+    pulseGain.gain.setTargetAtTime(value, t, rampMs / 1000);
+  }
+
+  // ── Stop pulse loop ───────────────────────────
+  function stopPulse() {
+    if (pulseTimer) { clearTimeout(pulseTimer); pulseTimer = null; }
+    pulsePhase = 'on';
+  }
+
+  // ── Run pulse loop for given on/off durations ─
+  function startPulse(onMs, offMs) {
+    stopPulse();
+
+    function tick() {
+      if (!enabled) { setGain(0); return; }
+      if (pulsePhase === 'on') {
+        setGain(1, 4);
+        pulsePhase = 'off';
+        pulseTimer = setTimeout(tick, onMs);
+      } else {
+        setGain(0, 4);
+        pulsePhase = 'on';
+        pulseTimer = setTimeout(tick, offMs);
+      }
+    }
+    tick();
+  }
+
+  // ── Transition to new sound state ────────────
+  function transitionTo(newState) {
+    if (newState === currentState) return;
+    currentState = newState;
+
+    if (!enabled) return;
+    resume();
+
+    switch (newState) {
+      case 'silent':
+        stopPulse();
+        setGain(0);
+        break;
+
+      case 'above':
+        stopPulse();
+        osc.frequency.setTargetAtTime(FREQ_ABOVE, actx.currentTime, 0.02);
+        startPulse(PULSE_ABOVE_ON, PULSE_ABOVE_OFF);
+        break;
+
+      case 'below':
+        stopPulse();
+        osc.frequency.setTargetAtTime(FREQ_BELOW, actx.currentTime, 0.02);
+        startPulse(PULSE_BELOW_ON, PULSE_BELOW_OFF);
+        break;
+
+      case 'center':
+        stopPulse();
+        osc.frequency.setTargetAtTime(FREQ_CENTER, actx.currentTime, 0.02);
+        setGain(1, 12);   // smooth fade-in for continuous tone
+        break;
+    }
+  }
+
+  // ── Public: update every frame ────────────────
+  //    beamFound : bool
+  //    beamYpx   : beam Y in video pixels (already smoothed)
+  //    vidHeight : video height in pixels
+  function update(beamFound, beamYpx, vidHeight) {
+    if (!enabled) return;
+
+    if (!beamFound) {
+      transitionTo('silent');
+      return;
+    }
+
+    const center = vidHeight / 2;
+    const zone   = useDeadzone ? vidHeight * (deadzonePct / 100) : 0;
+    const diff   = beamYpx - center;   // positive → beam is below centre on sensor
+
+    // Note on axis:
+    //  beam Y < center  →  beam is in UPPER half of frame
+    //                   →  phone is TOO LOW (user must raise it)
+    //                   →  "промінь вище центру" → fast high beep
+    //  beam Y > center  →  beam is in LOWER half of frame
+    //                   →  phone is TOO HIGH (user must lower it)
+    //                   →  "промінь нижче центру" → slow low beep
+
+    if (diff < -zone) {
+      transitionTo('above');   // above centre → fast high
+    } else if (diff > zone) {
+      transitionTo('below');   // below centre → slow low
+    } else {
+      transitionTo('center');  // dead zone → continuous
+    }
+  }
+
+  // ── Public: toggle on/off ─────────────────────
+  function toggleEnabled() {
+    enabled = !enabled;
+
+    if (enabled) {
+      initCtx();
+      resume();
+      currentState = ''; // force re-evaluation next frame
+    } else {
+      stopPulse();
+      if (pulseGain) setGain(0);
+      currentState = 'silent';
+    }
+    return enabled;
+  }
+
+  // ── Public: set volume ────────────────────────
+  function setVolume(v) {
+    volume = Math.max(0, Math.min(1, v));
+    if (gain) gain.gain.setTargetAtTime(volume, actx.currentTime, 0.02);
+  }
+
+  function setDeadzone(v) { useDeadzone = v; }
+  function setDeadzonePct(v) {
+    deadzonePct = Math.max(0, Math.min(30, v));
+    currentState = ''; // force re-evaluation next frame
+  }
+
+  // ── UI chip update ────────────────────────────
+  const chip      = document.getElementById('sound-chip');
+  const chipLabel = document.getElementById('sound-chip-label');
+  const chipBars  = chip.querySelector('.sc-bars');
+
+  const STATE_META = {
+    silent: { cls: 'sc-silent', anim: 'anim-none',   label: 'Тихо' },
+    above:  { cls: 'sc-above',  anim: 'anim-fast',   label: '▲ Підніми' },
+    below:  { cls: 'sc-below',  anim: 'anim-slow',   label: '▼ Опусти'  },
+    center: { cls: 'sc-center', anim: 'anim-steady', label: '✓ Рівень'  },
+  };
+
+  let lastChipState = '';
+  function updateChip() {
+    if (!enabled) {
+      chip.classList.remove('visible');
+      return;
+    }
+    chip.classList.add('visible');
+    if (currentState === lastChipState) return;
+    lastChipState = currentState;
+
+    const meta = STATE_META[currentState] || STATE_META.silent;
+    chip.className = 'visible ' + meta.cls;
+    chipBars.className = 'sc-bars ' + meta.anim;
+    chipLabel.textContent = meta.label;
+  }
+
+  // expose chip update so main loop can call it
+  return { update, toggleEnabled, setVolume, setDeadzone, setDeadzonePct, updateChip };
+})();
+
+// ── Sound button ──────────────────────────────
+$('btn-sound').addEventListener('click', () => {
+  const on = audio.toggleEnabled();
+  $('btn-sound').classList.toggle('active', on);
+  $('btn-sound').title = on ? 'Вимкнути звук' : 'Увімкнути звук';
+});
+
+// ── Volume slider ─────────────────────────────
+$('vol-slider').addEventListener('input', e => {
+  const v = +e.target.value;
+  $('vol-val').textContent = v;
+  audio.setVolume(v / 100);
+});
+
+// ── Deadzone toggle ───────────────────────────
+$('tog-deadzone').addEventListener('change', e => {
+  audio.setDeadzone(e.target.checked);
+  $('deadzone-row').style.opacity = e.target.checked ? '1' : '0.35';
+  $('deadzone-slider').disabled = !e.target.checked;
+});
+$('deadzone-slider').addEventListener('input', e => {
+  const v = +e.target.value;
+  $('deadzone-val').textContent = v;
+  audio.setDeadzonePct(v);
+});
+
+// Prevent context menu on long press
+document.addEventListener('contextmenu', e => e.preventDefault());
+</script>
+</body>
+</html>
